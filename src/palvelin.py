@@ -24,7 +24,7 @@ def create_app():
     
     @app.route('/update_var1', methods=['GET'])
     def update_var1():
-        with state_lock: # Varmistaa että tätä state ei muokata eri paikoista samaan aikaan (multi thread safe)
+        with state_lock: # Varmistaa että tätä state ei muokata eri paikoista samaan aikaan (multi thread safe) s
             # Access and modify shared state
             app.is_process_done = False
         return f"Updated var1 to {app.is_process_done}"

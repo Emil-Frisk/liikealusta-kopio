@@ -40,7 +40,7 @@ def handle_launch_params():
     return config
 
 def main():
-    logger = setup_logging("app", "app.log")
+    logger = setup_logging("fault_poller", "fault_poller.log")
     config = handle_launch_params()
     clients = ModbusClients(config=config, logger=logger)
     atexit.register(clients.cleanup)

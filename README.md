@@ -1,5 +1,21 @@
-# Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+# Liikealustan Rajapinta Ryhmä 14 
+Projektin tekijät:
+
+- **Olli Kangasniemi** - [TODO -> vastuu alue]
+- *Emil Frisk* - [TODO -> vastuu alue]
+- **Juuso Vainio** - [TODO -> vastuu alue]
+- *Mikko Pentikäinen* - [TODO -> vastuu alue]
+- **Marko Karttunen** - [TODO -> vastuu alue]
+
+## Esittely
+Toteutamme projektin Savonian Ai-MaSi-hankkeeseen. Ai-MaSi eli Artificial Intelligence Machine
+Simulation on hankeprojekti, jonka tarkoituksena on opettaa koneäly operoimaan kaivinkonetta kolmessa vaiheessa: ensin digitaalisena kaksosena simulaatioympäristössä, sitten pienoismallikaivurina ja lopulta oikeana työkoneena. Tässä projektissa keskitymme simulaatioympäristön liikealustan
+kehittämiseen. Päämääränämme on rajapinnan kehittäminen Mevean valmistamaan liikealustaan.
+Rajapinnan tulee pystyä muuntamaan tulevat kallistus ja kiihtyvyys tiedot reaaliaikaisesti liikealustassa oleville kahdelle Tritex servomoottorille. Servomoottorit liikuttavat liikealustaa ja simuloivat
+käyttäjälle reaaliaikaisesti kohdelaitteen liikkeitä. 
+
+## Arkkitehtuuri
+
 
 # Getting Started
 TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:

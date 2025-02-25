@@ -15,22 +15,16 @@ Rajapinnan tulee pystyä muuntamaan tulevat kallistus ja kiihtyvyys tiedot reaal
 käyttäjälle reaaliaikaisesti kohdelaitteen liikkeitä. 
 
 ## Arkkitehtuuri
+### Kaavio
+![Projektin Arkkitehtuuri](imgs/projektin_arkkitehtuuri.png)
 
+### Flask web-palvelin
+Rajapinta on toteutettu flaskilla tehtyyn web-palvelimeen. Se koostuu 6 rajapinnasta, globaaleista muuttujista ja apumoduuleista.
 
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+- **Fault Poller Moduuli**: Tarkkailee ajureihin tulevia vikoja ja korjaa ne mahdollisesti automaattisesti. Siihen on toteutettu myös viastapalautuminen, jos fault-poller kaatuu se lähettää palvelimelle viestin, että se täytyy käynnistää uudelleen, koska järjestelmä ei saa olla päällä ilman tätä moduulia.
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+- **Kiihtyvyydenohjaus Moduuli**: Hallitsee moottorin kiihtyvyyttä, jotta se on tasaisempi. Ilmoittaa palvelimelle, kun ne on valmiita.
 
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 
+- **Moottoreiden statuksen tarkkailu**: Palvelimella olevien globaalien muuttujien avulla.
 
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
+- **Ajureiden kanssa kommunikaatio**: Kaikki kommunikaatio tapahtuu Modbus-TCP protokollan avulla ja jokainen moduuli on jaettu käyttämään omia TID(tunnistaa pyynnön) arvovälejä, jotta ei tule pakettikolareita.

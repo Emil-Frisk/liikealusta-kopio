@@ -113,7 +113,8 @@ class ModbusClients:
                 return None
         
     def cleanup(self):
-        self.logger.info("cleanup function executed!")
-        self.client_left.close()
-        self.client_right.close()    
+        self.logger.info(f"cleanup function executed at module {self.config.MODULE_NAME}")
+        if self.client_left is not None and self.client_right is not None:
+            self.client_left.close()
+            self.client_right.close()    
             

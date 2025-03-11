@@ -1,38 +1,39 @@
 
-from pymodbus.client import ModbusTcpClient
+from pymodbus.client import AsyncModbusTcpClient
 from typing import Optional
 import requests
 from utils import is_nth_bit_on
+import asyncio
 from time import sleep
 
 class ModbusClients:
     def __init__(self, config, logger):
         self.config = config
         self.logger = logger
-        self.client_left: Optional[ModbusTcpClient] = None
-        self.client_right: Optional[ModbusTcpClient] = None
+        self.client_left: Optional[AsyncModbusTcpClient] = None
+        self.client_right: Optional[AsyncModbusTcpClient] = None
         self.max_retries = 5  # Maximum retry attempts
         self.retry_delay = 0.050  # Initial delay in seconds (doubles with each retry)
 
-    def connect(self):
+    async def connect(self):
         """
         Establishes connections to both Modbus clients.
         Returns True if both connections are successful.
         """
         
         try:
-            self.client_left = ModbusTcpClient(
-                self.config.SERVER_IP_LEFT,
+            self.client_left = AsyncModbusTcpClient(
+                host=self.config.SERVER_IP_LEFT,
                 port=self.config.SERVER_PORT
             )
 
-            self.client_right = ModbusTcpClient(
-                self.config.SERVER_IP_RIGHT,
+            self.client_right = AsyncModbusTcpClient(
+                host=self.config.SERVER_IP_RIGHT,
                 port=self.config.SERVER_PORT
             )
 
-            left_connected = self.client_left.connect()
-            right_connected = self.client_left.connect()
+            left_connected = await self.client_left.connect()
+            right_connected = await self.client_left.connect()
 
             if left_connected and right_connected:
                 self.client_left.transaction.next_tid = self.config.startTID
@@ -53,18 +54,18 @@ class ModbusClients:
                 client.transaction.next_tid = self.config.START_TID
                 self.logger.debug(f"Reset TID for client")
 
-    def get_recent_fault(self) -> tuple[Optional[int], Optional[int]]:
+    async def get_recent_fault(self) -> tuple[Optional[int], Optional[int]]:
         """
         Read fault registers from both clients.
         Returns tuple of (left_fault, right_fault), None if read fails
         """
         try:
-            left_response = self.client_left.read_holding_registers(
+            left_response = await self.client_left.read_holding_registers(
                 address=self.config.RECENT_FAULT_ADDRESS,
                 count=1,
                 slave=self.config.SLAVE_ID
             )
-            right_response = self.client_right.read_holding_registers(
+            right_response = await self.client_right.read_holding_registers(
                 address=self.config.RECENT_FAULT_ADDRESS,
                 count=1,
                 slave=self.config.SLAVE_ID
@@ -80,7 +81,7 @@ class ModbusClients:
                 self.logger.error(f"Exception reading fault registers: {str(e)}")
                 return None, None
         
-    def check_fault_stauts(self) -> Optional[bool]:
+    async def check_fault_stauts(self) -> Optional[bool]:
         """
         Read drive status from both motors.
         Returns true if either one is in fault state
@@ -90,12 +91,12 @@ class ModbusClients:
         try:
             result = False
 
-            left_response = self.client_left.read_holding_registers(
+            left_response = await self.client_left.read_holding_registers(
                 address=self.config.DRIVER_STATUS_ADDRESS,
                 count=1,
                 slave=self.config.SLAVE_ID
             )
-            right_response = self.client_right.read_holding_registers(
+            right_response = await self.client_right.read_holding_registers(
                 address=self.config.DRIVER_STATUS_ADDRESS,
                 count=1,
                 slave=self.config.SLAVE_ID
@@ -115,17 +116,17 @@ class ModbusClients:
                 self.logger.error(f"Exception checking fault status: {str(e)}")
                 return None
     
-    def get_vel(self):
+    async def get_vel(self):
         """
         Gets velocity from both registers returns None if error
         """
         try:
-            left_response = self.client_left.read_holding_registers(
+            left_response = await  self.client_left.read_holding_registers(
                 address=self.config.VFEEDBACK_VELOCITY,
                 count=1,
                 slave=self.config.SLAVE_ID
             )
-            right_response = self.client_right.read_holding_registers(
+            right_response = await self.client_right.read_holding_registers(
                 address=self.config.VFEEDBACK_VELOCITY,
                 count=1,
                 slave=self.config.SLAVE_ID
@@ -141,17 +142,17 @@ class ModbusClients:
                 self.logger.error(f"Exception reading fault registers: {str(e)}")
                 return None, None
 
-    def stop(self):
+    async def stop(self):
         
             attempt_count = 0
             while(self.max_retries >= attempt_count):
                 try:
-                    left_response = self.client_left.write_register( # stop = 4
+                    left_response = await self.client_left.write_register( # stop = 4
                         address=self.config.IEG_MOTION,
                         value=4,
                         slave=self.config.SLAVE_ID
                     )
-                    right_response = self.client_right.write_register(
+                    right_response = await self.client_right.write_register(
                         address=self.config.IEG_MOTION,
                         value=4,
                         slave=self.config.SLAVE_ID
@@ -169,9 +170,8 @@ class ModbusClients:
                 except Exception as e:
                     retry_count += 1
                     if retry_count < self.max_retries:
-                        delay = self.retry_delay * (2 ** retry_count)
-                        self.logger.info(f"Retrying in {delay} seconds due to exception...")
-                        sleep(delay)
+                        self.logger.info(f"Retrying in {self.retry_delay} seconds due to exception...")
+                        asyncio.sleep(self.retry_delay)
                         continue
 
                 self.logger.error("Failed to stop motors after maximum retries. Critical failure!")

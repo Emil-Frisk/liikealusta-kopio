@@ -3,6 +3,7 @@ from pymodbus.client import ModbusTcpClient
 from typing import Optional
 import requests
 from utils import is_nth_bit_on
+from time import sleep
 
 class ModbusClients:
     def __init__(self, config, logger):
@@ -10,6 +11,8 @@ class ModbusClients:
         self.logger = logger
         self.client_left: Optional[ModbusTcpClient] = None
         self.client_right: Optional[ModbusTcpClient] = None
+        self.max_retries = 5  # Maximum retry attempts
+        self.retry_delay = 0.050  # Initial delay in seconds (doubles with each retry)
 
     def connect(self):
         """
@@ -111,7 +114,70 @@ class ModbusClients:
         except Exception as e:
                 self.logger.error(f"Exception checking fault status: {str(e)}")
                 return None
+    
+    def get_vel(self):
+        """
+        Gets velocity from both registers returns None if error
+        """
+        try:
+            left_response = self.client_left.read_holding_registers(
+                address=self.config.VFEEDBACK_VELOCITY,
+                count=1,
+                slave=self.config.SLAVE_ID
+            )
+            right_response = self.client_right.read_holding_registers(
+                address=self.config.VFEEDBACK_VELOCITY,
+                count=1,
+                slave=self.config.SLAVE_ID
+            )
+
+            if left_response.isError() or right_response.isError():
+                self.logger.error("Error reading velocity register")
+                return None, None
+            
+            return left_response.registers[0], right_response.registers[0]
+
+        except Exception as e:
+                self.logger.error(f"Exception reading fault registers: {str(e)}")
+                return None, None
+
+    def stop(self):
         
+            attempt_count = 0
+            while(self.max_retries >= attempt_count):
+                try:
+                    left_response = self.client_left.write_register( # stop = 4
+                        address=self.config.IEG_MOTION,
+                        value=4,
+                        slave=self.config.SLAVE_ID
+                    )
+                    right_response = self.client_right.write_register(
+                        address=self.config.IEG_MOTION,
+                        value=4,
+                        slave=self.config.SLAVE_ID
+                    )
+
+                    if left_response.isError() or right_response.isError():
+                        attempt_count += 1
+                        self.logger.error(f"Error stopping motor trying again i: {attempt_count}")
+                        sleep(self.retry_delay)
+                        continue
+                    else:
+                        self.logger.info(f"Succesfully stopped both motors")        
+                        return
+
+                except Exception as e:
+                    retry_count += 1
+                    if retry_count < self.max_retries:
+                        delay = self.retry_delay * (2 ** retry_count)
+                        self.logger.info(f"Retrying in {delay} seconds due to exception...")
+                        sleep(delay)
+                        continue
+
+                self.logger.error("Failed to stop motors after maximum retries. Critical failure!")
+                raise RuntimeError("Unable to stop motors after maximum attempts")
+        
+
     def cleanup(self):
         self.logger.info(f"cleanup function executed at module {self.config.MODULE_NAME}")
         if self.client_left is not None and self.client_right is not None:

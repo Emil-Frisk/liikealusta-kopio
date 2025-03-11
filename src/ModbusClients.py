@@ -1,6 +1,8 @@
 
 from pymodbus.client import ModbusTcpClient
 from typing import Optional
+import requests
+from utils import is_nth_bit_on
 
 class ModbusClients:
     def __init__(self, config, logger):
@@ -9,17 +11,12 @@ class ModbusClients:
         self.client_left: Optional[ModbusTcpClient] = None
         self.client_right: Optional[ModbusTcpClient] = None
 
-    def is_4th_bit_on(number):
-             # tekee bittiarvon 00001000 | bitit lasketaan 0 joten 3 on 4's bit
-             mask = 1 << 3
-             # tekee bitwise AND vertailun palauttaa 8 binäärimuodossa vain jos oikea bitti on päällä
-             return (number & mask) != 0
-
     def connect(self):
         """
         Establishes connections to both Modbus clients.
         Returns True if both connections are successful.
         """
+        
         try:
             self.client_left = ModbusTcpClient(
                 self.config.SERVER_IP_LEFT,
@@ -83,7 +80,9 @@ class ModbusClients:
     def check_fault_stauts(self) -> Optional[bool]:
         """
         Read drive status from both motors.
-        Returns boolean or None if it fails
+        Returns true if either one is in fault state
+        otherwise false
+        or None if it fails
         """
         try:
             result = False
@@ -103,7 +102,8 @@ class ModbusClients:
                 self.logger.error("Error reading driver status register")
                 return None
 
-            if(self.is_4th_bit_on(left_response.registers[0]) or self.is_4th_bit_on(right_response.registers[0])):
+            # 4th bit 2^4 indicates if motor is in the fault state
+            if(is_nth_bit_on(3, left_response.registers[0]) or is_nth_bit_on(3, right_response.registers[0])):
                  result = True
             
             return result
@@ -113,13 +113,7 @@ class ModbusClients:
                 return None
         
     def cleanup(self):
-    # TODO - ilmoita serverille johonkin endpoittiin
-    # että fault poller on sammunut ja se yrittää käynnistää
-    # sen uudelleen automaattisesti. (tämän moduulin ei pitäisi sammua
-    # jos servu on vielä käynnissä)
-        if (self.config.MODULE_NAME == "fault_poller.py"):
-            print("cleanup func executed!")
-            self.client_left.close()
-            self.client_right.close()
-            # ilmoita servulle
+        self.logger.info("cleanup function executed!")
+        self.client_left.close()
+        self.client_right.close()    
             

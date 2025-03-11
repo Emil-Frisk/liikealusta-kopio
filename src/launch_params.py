@@ -13,6 +13,7 @@ def handle_launch_params():
     parser.add_argument("--polling_time_interval", type=int, help="polling time interval")
     parser.add_argument("--start_tid", type=int, help="start tid")
     parser.add_argument("--end_tid", type=int, help="end tid")
+    parser.add_argument("--web_server_port", type=int, help="end tid")
 
     config = Config()
     config.MODULE_NAME = module_name
@@ -39,5 +40,7 @@ def handle_launch_params():
         config.START_TID = args.start_tid
     if (args.end_tid):
         config.LAST_TID = args.end_tid
+    if (args.web_server_port):
+        config.WEB_SERVER_PORT = args.web_server_port
 
     return config

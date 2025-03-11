@@ -18,7 +18,7 @@ def cleanup(app):
     if app.clients is not None:
         app.clients.cleanup()
 
-def monitor_fault_poller(app):
+async def monitor_fault_poller(app):
     """
     Heathbeat monitor that makes sure fault poller
     stays alive and if it dies it restarts it
@@ -33,7 +33,7 @@ def monitor_fault_poller(app):
                     app.fault_poller_pid = new_pid
                     app.logger.info(f"Restarted fault_poller with PID: {new_pid}")
                     del app.module_manager.processes[pid]
-        sleep(10)  # Check every 10 seconds
+        asyncio.sleep(10)  # Check every 10 seconds
 
 def init(app):
     try:
@@ -116,14 +116,14 @@ def create_app():
     @app.route("/comms-fault", methods=['GET'])
     async def resolve_comms_fault():
         try:
-            app.clients.stop()
+            await app.clients.stop()
         except RuntimeError as e:
             # Build a new connection stop command was unsuccesful
             clients = ModbusClients(config=app.config, logger=app.logger)
-            clients.connect()
-            clients.stop()
+            await clients.connect()
+            await clients.stop()
 
-        app.clients.get_vel()
+        await app.clients.get_vel()
 
         # stop motors
         # wait for the motors to have stopped 
@@ -132,7 +132,6 @@ def create_app():
         # 1. get the current motor revolutions
         # 2. update modbus source control % to point to that spot
         # 3. clear fault status -> write ready to receive more requests
-        pass
 
     @app.route('/read_var1', methods=['GET'])
     async def read_var1():

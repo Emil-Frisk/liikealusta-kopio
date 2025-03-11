@@ -6,6 +6,7 @@ from config import Config
 from setup_logging import setup_logging
 from ModbusClients import ModbusClients
 from launch_params import handle_launch_params
+import requests
 
 
 
@@ -29,6 +30,7 @@ def main():
             sleep(config.POLLING_TIME_INTERVAL)
             # clients.check_and_reset_tids()
             print("I am pretending to be alive")
+
             # katso ensin onko moottorissa fault tila
             # jos on katso onko se coms fault
             ## TODO - ota selvää miltä coms fault vastaus näyttää
@@ -41,6 +43,7 @@ def main():
 
             # print("Transaction id: " + str(left_response))
             # print("Count: " + str(right_response))
+            
     except KeyboardInterrupt:
         logger.info("Polling stopped by user")
     except Exception as e:

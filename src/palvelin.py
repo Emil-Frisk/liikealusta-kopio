@@ -13,7 +13,8 @@ from time import sleep
 def cleanup(app):
     app.logger.info("cleanup function executed!")
     app.module_manager.cleanup_all()
-    app.clients.cleanup()
+    if app.clients is not None:
+        app.clients.cleanup()
 
 def monitor_fault_poller(app):
     """

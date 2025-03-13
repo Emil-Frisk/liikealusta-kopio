@@ -35,7 +35,7 @@ async def monitor_fault_poller(app):
                     del app.module_manager.processes[pid]
         asyncio.sleep(10)  # Check every 10 seconds
 
-def init(app):
+async def init(app):
     try:
         logger = setup_logging("server", "server.log")
         module_manager = ModuleManager(logger)
@@ -43,14 +43,9 @@ def init(app):
         clients = ModbusClients(config=config, logger=logger)
 
         # Connect to both drivers
-        # for i in range(config.CONNECTION_TRY_COUNT):
-        #     if not clients.connect():
-        #         logger.error(f"Failed to initialize connections, attempt: {i+1}")
-        #         if (i+1 == config.CONNECTION_TRY_COUNT):
-        #             logger.error(f"Could not initialize connections for the clients -> exiting")
-        #             return        
+        # await clients.connect()   
 
-        # fault_poller_pid = module_manager.launch_module("fault_poller")
+        # asyncio.create_task(monitor_fault_poller(app))
 
         app.app_config = config
         app.logger = logger

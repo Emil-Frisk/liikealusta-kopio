@@ -18,9 +18,9 @@ class ModbusClients:
     async def connect(self):
         """
         Establishes connections to both Modbus clients.
-        Returns True if both connections are successful.
+        Returns True if both connections are successful, or False if either fails
+        and returns None if error
         """
-        
         try:
             self.client_left = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_LEFT,
@@ -32,21 +32,38 @@ class ModbusClients:
                 port=self.config.SERVER_PORT
             )
 
-            left_connected = await self.client_left.connect()
-            right_connected = await self.client_left.connect()
+            left_connected = False
+            right_connected = False
+            max_attempts = self.config.CONNECTION_TRY_COUNT
+            attempt_left = 0
+            attempt_right = 0
 
+            while (not left_connected or not right_connected) and \
+            (attempt_left_count < max_attempts or attempt_right_count < max_attempts):
+                if not left_connected:
+                    left_connected = await self.client_left.connect()
+                    attempt_left_count += 1
+                    if not left_connected:
+                         self.logger.debug(f"Left connection attempt {attempt_left} failed")
+
+                if not right_connected:
+                    right_connected = await self.client_right.connect()
+                    attempt_right_count += 1
+                    if not right_connected:
+                         self.logger.debug(f"Right connection attempt {attempt_right} failed")
+
+                
             if left_connected and right_connected:
-                self.client_left.transaction.next_tid = self.config.startTID
-                self.client_right.transaction.next_tid = self.config.startTID
-                self.logger.info("Successfully connected to both clients")
+                self.logger.info("Both clients connected succesfully")
                 return True
-            else:
-                self.self.logger.error("Error connecting to both clients")
+            else: 
+                self.logger.warning(f"Connection failed after {max_attempts} attempts. "
+                                    f"Left: {left_connected}, right: {right_connected}")
                 return False
             
         except Exception as e:
             self.logger.error(f"Error connecting to clients {str(e)}")
-            return False
+            return None
 
     def check_and_reset_tids(self):
         for client in [self.client_left, self.client_right]:
@@ -161,7 +178,7 @@ class ModbusClients:
                     if left_response.isError() or right_response.isError():
                         attempt_count += 1
                         self.logger.error(f"Error stopping motor trying again i: {attempt_count}")
-                        sleep(self.retry_delay)
+                        asyncio.sleep(self.retry_delay)
                         continue
                     else:
                         self.logger.info(f"Succesfully stopped both motors")        

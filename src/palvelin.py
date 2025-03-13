@@ -2,7 +2,7 @@ from flask import Flask
 import threading
 import psutil
 import asyncio
-from quart import Quart
+from quart import Quart, request, make_response, jsonify
 from ModbusClients import ModbusClients
 state_lock = threading.Lock()
 import atexit
@@ -102,15 +102,82 @@ def create_app():
         return f"Moi 2", 200
 
     @app.route("/write", methods=['post'])
-    async def resolve_comms_fault():
-        # check if acceleration curve is ready, if not wait with asyncio
-        # stop motors
-        #
+    async def write():
         pass
 
-    @app.route("/fault-reset", methods=['GET'])
+    @app.route("/fault-reset", methods=['POST'])
     async def resolve_fault():
-        pass
+        """
+        Resets faults on both motors using the specified mode.
+        
+        Request Body:
+            JSON object with a "mode" field (e.g., {"mode": "default"}).
+        
+        Returns:
+            JSON response with status value.
+        
+        Status Codes:
+            200: Success.
+            400: Invalid mode or type error.
+            500: Unexpected error or failure to reset faults.
+        """
+        try:
+            data = await request.get_json()
+            if data is None:
+                success = await app.clients.fault_reset()
+                if success:
+                    return await make_response(
+                        jsonify({
+                            "status": "success",
+                            "message": "Faults reset successfully",
+                        }),
+                        200
+                    )
+                else:
+                    return await make_response(
+                        jsonify({
+                            "status": "success",
+                            "message": "Fault reset unsuccessfull",
+                        }),
+                        500
+                    )
+            else:
+                success = await app.clients.fault_reset(data.get("mode", "default"))
+                if success:
+                    return await make_response(
+                        jsonify({
+                            "status": "success",
+                            "message": "Faults reset successfully",
+                        }),
+                        200
+                    )
+                else: 
+                    return await make_response(
+                        jsonify({
+                            "status": "success",
+                            "message": "Fault reset unsuccessfull",
+                        }),
+                        500
+                    )
+
+        except TypeError as e:
+            app.logger.error(f"Type error in fault_reset: {e}")
+            return await make_response(
+                jsonify({"status": "error", "message": str(e)}),
+                400
+            )
+        except ValueError as e:
+            app.logger.error(f"Value error in fault_reset: {e}")
+            return await make_response(
+                jsonify({"status": "error", "message": str(e)}),
+                400
+            )
+        except Exception as e:
+            app.logger.error(f"Unexpected error in fault_reset: {e}")
+            return await make_response(
+                jsonify({"status": "error", "message": str(e)}),
+                500
+            )
 
     @app.route('/read_var1', methods=['GET'])
     async def read_var1():

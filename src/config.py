@@ -4,7 +4,7 @@ from dataclasses import dataclass
 class Config:
     RECENT_FAULT_ADDRESS: int = 846 #Coms bit 10 -> 2^10
     DRIVER_STATUS_ADDRESS: int = 104
-    IEG_MODE: int = 4316 # stop 2^2
+    IEG_MODE: int = 4316
     IEG_MOTION: int = 4317 # stop 2^2
     VFEEDBACK_VELOCITY: int = 361
     SERVER_IP_LEFT: str = '192.168.0.211'  

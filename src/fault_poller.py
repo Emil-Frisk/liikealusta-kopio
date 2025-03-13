@@ -10,19 +10,13 @@ import requests
 
 
 
-def main():
+async def main():
     logger = setup_logging("faul_poller", "faul_poller.log")
     config = handle_launch_params()
     clients = ModbusClients(config=config, logger=logger)
     atexit.register(clients.cleanup)
 
-    # for i in range(config.CONNECTION_TRY_COUNT):
-    #     if not clients.connect():
-    #         logger.error(f"Failed to initialize connections, attempt: {i+1}")
-    #         if (i+1 == config.CONNECTION_TRY_COUNT):
-    #             logger.error(f"Could not initialize connections for the clients -> exiting")
-    #             return
-
+    # await clients.connect()
     logger.info(f"Starting polling loop with polling time interval: {config.POLLING_TIME_INTERVAL}")
 
     try:

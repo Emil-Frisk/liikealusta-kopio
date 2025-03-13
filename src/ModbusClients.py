@@ -5,7 +5,7 @@ import pymodbus.exceptions
 import requests
 from utils import is_nth_bit_on
 import asyncio
-import pymodbus
+from pymodbus.exceptions import ConnectionException, ModbusIOException
 from time import sleep
 
 class ModbusClients:
@@ -14,8 +14,8 @@ class ModbusClients:
         self.logger = logger
         self.client_left: Optional[AsyncModbusTcpClient] = None
         self.client_right: Optional[AsyncModbusTcpClient] = None
-        max_retries = 5  # Maximum retry attempts
-        self.retry_delay = 0.050  # Initial delay in seconds (doubles with each retry)
+        self.max_retries = 10
+        self.retry_delay = 0.2
 
     async def connect(self):
         """
@@ -161,53 +161,83 @@ class ModbusClients:
                 self.logger.error(f"Exception reading fault registers: {str(e)}")
                 return None, None
 
+
     async def stop(self):
-        
-            attempt_count = 0
-            max_retries = max_retries
+        """
+        Attempts to stop both motors by writing to the IEG_MOTION register.
+        Returns True if successful, False if failed after retries.
+        """
+        attempt_count = 0
+        max_retries = self.max_retries
+        retry_delay = self.retry_delay
 
-            while(max_retries >= attempt_count):
-                try:
-                    left_response = await self.client_left.write_register( # stop = 4
+        while attempt_count < max_retries:
+            try:
+                # Attempt to stop both motors in parallel
+                responses = await asyncio.gather(
+                    self.client_left.write_register(
                         address=self.config.IEG_MOTION,
                         value=4,
                         slave=self.config.SLAVE_ID
-                    )
-                    right_response = await self.client_right.write_register(
+                    ),
+                    self.client_right.write_register(
                         address=self.config.IEG_MOTION,
                         value=4,
                         slave=self.config.SLAVE_ID
+                    ),
+                    return_exceptions=True
+                )
+
+                left_response, right_response = responses
+
+                # Check for exceptions in the responses
+                if isinstance(left_response, Exception) or isinstance(right_response, Exception):
+                    attempt_count += 1
+                    self.logger.error(
+                        f"Exception during parallel write (attempt {attempt_count}/{max_retries}): "
+                        f"Left: {left_response}, Right: {right_response}"
                     )
+                    await asyncio.sleep(retry_delay)
+                    continue
 
-                    if left_response.isError() or right_response.isError():
-                        attempt_count += 1
-                        self.logger.error(f"Error stopping motor trying again i: {attempt_count}")
-                        await asyncio.sleep(self.retry_delay)
-                        continue
+                # Check for Modbus errors in the responses
+                if left_response.isError() or right_response.isError():
+                    attempt_count += 1
+                    self.logger.error(
+                        f"Modbus error stopping motors (attempt {attempt_count}/{max_retries}): "
+                        f"Left: {left_response}, Right: {right_response}"
+                    )
+                    await asyncio.sleep(retry_delay)
+                    continue
 
-                    self.logger.info(f"Succesfully stopped both motors")        
-                    return True
+                # Success
+                self.logger.info("Successfully stopped both motors")
+                return True
 
-                except (asyncio.exceptions.TimeoutError, pymodbus.exceptions.ModbusIOException, pymodbus.exceptions.ConnectionException) as e:
-                     attempt_count += 1
-                     self.logger.error(f"Connection error (attempt {attempt_count}/{max_retries})")
+            except (ConnectionException, asyncio.exceptions.TimeoutError, ModbusIOException) as e:
+                attempt_count += 1
+                self.logger.error(f"Connection error (attempt {attempt_count}/{max_retries}): {e}")
 
-                     if not self.client_left.connected or not self.client_right.connected:
-                          await self.connect() 
-                          if attempt_count < max_retries:
-                            await asyncio.sleep(self.retry_delay)
-                            continue
-                          else:
-                            self.logger.error("Max retries reached. Failed to stop motors.")
-                            return False
-                          
-                except (Exception) as e:
-                        self.logger.error(f"Something went wrong {e}")
-                        return False
-            
-            self.logger.error("Failed to stop motors after maximum retries. Critical failure!")
-            return False
-        
+                # Check if either client is disconnected
+                if not self.client_left.connected or not self.client_right.connected:
+                    self.logger.info("One or both clients disconnected. Attempting to reconnect...")
+                    await self.connect()
+
+                if attempt_count < max_retries:
+                    self.logger.info(f"Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    continue
+                else:
+                    self.logger.error("Max retries reached. Failed to stop motors.")
+                    return False
+
+            except Exception as e:
+                # Log unexpected errors and fail immediately
+                self.logger.error(f"Unexpected error while stopping motors: {e}")
+                return False
+
+        self.logger.error("Failed to stop motors after maximum retries. Critical failure!")
+        return False
 
     def cleanup(self):
         self.logger.info(f"cleanup function executed at module {self.config.MODULE_NAME}")

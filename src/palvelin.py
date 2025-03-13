@@ -110,15 +110,7 @@ def create_app():
 
     @app.route("/fault-reset", methods=['GET'])
     async def resolve_fault():
-        # try:
-        #     await app.clients.stop()
-        # except RuntimeError as e:
-        #     # Build a new connection stop command was unsuccesful
-        #     clients = ModbusClients(config=app.config, logger=app.logger)
-        #     await clients.connect()
-        #     await clients.stop()
         pass
-
 
     @app.route('/read_var1', methods=['GET'])
     async def read_var1():
@@ -129,8 +121,12 @@ def create_app():
     
     @app.route('/stop', methods=['GET'])
     async def stop_motors():
-
-        pass # sammuta moottorit -> päivitä global var?
+        try:
+            success = await app.clients.stop()
+            if not success:
+                pass # do something crazy :O
+        except Exception as e:
+            app.logger.error("Failed to stop motors?") # Mitäs sitten :D
 
     return app
 

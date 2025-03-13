@@ -1,9 +1,11 @@
 
 from pymodbus.client import AsyncModbusTcpClient
 from typing import Optional
+import pymodbus.exceptions
 import requests
 from utils import is_nth_bit_on
 import asyncio
+import pymodbus
 from time import sleep
 
 class ModbusClients:
@@ -12,7 +14,7 @@ class ModbusClients:
         self.logger = logger
         self.client_left: Optional[AsyncModbusTcpClient] = None
         self.client_right: Optional[AsyncModbusTcpClient] = None
-        self.max_retries = 5  # Maximum retry attempts
+        max_retries = 5  # Maximum retry attempts
         self.retry_delay = 0.050  # Initial delay in seconds (doubles with each retry)
 
     async def connect(self):
@@ -162,7 +164,9 @@ class ModbusClients:
     async def stop(self):
         
             attempt_count = 0
-            while(self.max_retries >= attempt_count):
+            max_retries = max_retries
+
+            while(max_retries >= attempt_count):
                 try:
                     left_response = await self.client_left.write_register( # stop = 4
                         address=self.config.IEG_MOTION,
@@ -178,21 +182,31 @@ class ModbusClients:
                     if left_response.isError() or right_response.isError():
                         attempt_count += 1
                         self.logger.error(f"Error stopping motor trying again i: {attempt_count}")
-                        asyncio.sleep(self.retry_delay)
-                        continue
-                    else:
-                        self.logger.info(f"Succesfully stopped both motors")        
-                        return
-
-                except Exception as e:
-                    retry_count += 1
-                    if retry_count < self.max_retries:
-                        self.logger.info(f"Retrying in {self.retry_delay} seconds due to exception...")
-                        asyncio.sleep(self.retry_delay)
+                        await asyncio.sleep(self.retry_delay)
                         continue
 
-                self.logger.error("Failed to stop motors after maximum retries. Critical failure!")
-                raise RuntimeError("Unable to stop motors after maximum attempts")
+                    self.logger.info(f"Succesfully stopped both motors")        
+                    return True
+
+                except (asyncio.exceptions.TimeoutError, pymodbus.exceptions.ModbusIOException, pymodbus.exceptions.ConnectionException) as e:
+                     attempt_count += 1
+                     self.logger.error(f"Connection error (attempt {attempt_count}/{max_retries})")
+
+                     if not self.client_left.connected or not self.client_right.connected:
+                          await self.connect() 
+                          if attempt_count < max_retries:
+                            await asyncio.sleep(self.retry_delay)
+                            continue
+                          else:
+                            self.logger.error("Max retries reached. Failed to stop motors.")
+                            return False
+                          
+                except (Exception) as e:
+                        self.logger.error(f"Something went wrong {e}")
+                        return False
+            
+            self.logger.error("Failed to stop motors after maximum retries. Critical failure!")
+            return False
         
 
     def cleanup(self):

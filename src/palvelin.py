@@ -108,25 +108,17 @@ def create_app():
         #
         pass
 
-    @app.route("/comms-fault", methods=['GET'])
-    async def resolve_comms_fault():
-        try:
-            await app.clients.stop()
-        except RuntimeError as e:
-            # Build a new connection stop command was unsuccesful
-            clients = ModbusClients(config=app.config, logger=app.logger)
-            await clients.connect()
-            await clients.stop()
+    @app.route("/fault-reset", methods=['GET'])
+    async def resolve_fault():
+        # try:
+        #     await app.clients.stop()
+        # except RuntimeError as e:
+        #     # Build a new connection stop command was unsuccesful
+        #     clients = ModbusClients(config=app.config, logger=app.logger)
+        #     await clients.connect()
+        #     await clients.stop()
+        pass
 
-        await app.clients.get_vel()
-
-        # stop motors
-        # wait for the motors to have stopped 
-        # set analog position to point where the revolutions are currently
-        # set fault status for app
-        # 1. get the current motor revolutions
-        # 2. update modbus source control % to point to that spot
-        # 3. clear fault status -> write ready to receive more requests
 
     @app.route('/read_var1', methods=['GET'])
     async def read_var1():

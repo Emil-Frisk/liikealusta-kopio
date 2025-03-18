@@ -105,14 +105,11 @@ def create_app():
     async def write():
         pass
 
-    @app.route("/fault-reset", methods=['POST'])
+    @app.route("/fault-reset", methods=['GET'])
     async def resolve_fault():
         """
-        Resets faults on both motors using the specified mode.
-        
-        Request Body:
-            JSON object with a "mode" field (e.g., {"mode": "default"}).
-        
+        Resets faults on both motors.
+
         Returns:
             JSON response with status value.
         
@@ -134,24 +131,6 @@ def create_app():
                         200
                     )
                 else:
-                    return await make_response(
-                        jsonify({
-                            "status": "success",
-                            "message": "Fault reset unsuccessfull",
-                        }),
-                        500
-                    )
-            else:
-                success = await app.clients.fault_reset(data.get("mode", "default"))
-                if success:
-                    return await make_response(
-                        jsonify({
-                            "status": "success",
-                            "message": "Faults reset successfully",
-                        }),
-                        200
-                    )
-                else: 
                     return await make_response(
                         jsonify({
                             "status": "success",

@@ -25,15 +25,11 @@ async def main():
             # clients.check_and_reset_tids()
             print("I am pretending to be alive")
 
-            # katso ensin onko moottorissa fault tila
-            # jos on katso onko se coms fault
-            ## TODO - ota selvää miltä coms fault vastaus näyttää
-            # if (clients.check_fault_stauts()):
-            #     left_response, right_response = clients.get_recent_fault()
-            #     # comms faultti jommassakummassa moottorissa
-            #     if (left_response == 10 or right_response == 10): 
-            #         # TODO - sammuta moottorit -> lähetä tcp request palvelimelle
-            #         a = 10
+            if (clients.check_fault_stauts()):
+                left_response, right_response = clients.get_recent_fault()
+                # Check that its not a critical fault
+                if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
+                    await clients.fault_reset()
 
             # print("Transaction id: " + str(left_response))
             # print("Count: " + str(right_response))

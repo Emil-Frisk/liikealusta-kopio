@@ -1,7 +1,9 @@
 import subprocess
 import os
+import sys
 import signal
 import time
+import psutil
 
 class ModuleManager:
     def __init__(self, logger):
@@ -11,10 +13,15 @@ class ModuleManager:
     def launch_module(self, module_path, args=None):
         """Launch a Python module and return PID or none if error"""
         try:
-            cmd = ['python', '-m', module_path]
             if args:
                 cmd.extend(args)
                 
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+            src_dir = os.path.join(base_dir, 'src')
+            file_path = os.path.join(src_dir, f"{module_path}.py")
+
+            cmd =  ['python', file_path]
+            
             process = subprocess.Popen(
                 cmd,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
@@ -34,7 +41,7 @@ class ModuleManager:
             return None
 
     def cleanup_module(self, pid):
-        """Cleanup a specific module by module path"""
+        """Cleanup a specific module by PID"""
         if pid not in self.processes:
             self.logger.error(f"No process found with PID: {pid}")
             return False
@@ -43,6 +50,17 @@ class ModuleManager:
         process = process_info['process']
         
         try:
+            # Check if the process is still running and is a Python process
+            ps_process = psutil.Process(pid)
+            process_name = ps_process.name().lower()
+
+            print(f"process_name {process_name}")
+
+            if 'python' not in process_name:
+                self.logger.error(f"Process with PID {pid} is not a Python process: {process_name}")
+                del self.processes[pid]
+                return False
+
             # First try graceful termination
             if os.name == 'nt':  # Windows
                 process.send_signal(signal.CTRL_C_EVENT)

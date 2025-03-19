@@ -1,5 +1,4 @@
 from flask import Flask
-import threading
 import psutil
 import asyncio
 from quart import Quart, request, make_response, jsonify

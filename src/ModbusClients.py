@@ -303,4 +303,39 @@ class ModbusClients:
         if self.client_left is not None and self.client_right is not None:
             self.client_left.close()
             self.client_right.close()    
+
+    async def home(self):
+        try:         
+            await self.client_right.write_register(address=self.config.IEG_MOTION,
+                                        value=256,
+                                        slave=self.config.SLAVE_ID)
+            await self.client_left.write_register(address=self.config.IEG_MOTION,
+                                        value=256,
+                                        slave=self.config.SLAVE_ID)
             
+            #Checks if both actuators are homed or not. Returns True when homed.
+            while True:
+                OEG_STATUS_right = await self.client_right.read_holding_registers(address=self.config.OEG_STATUS,
+                                    count=1,
+                                    slave=self.config.SLAVE_ID)
+
+                OEG_STATUS_left = await self.client_left.read_holding_registers(address=self.config.OEG_STATUS,
+                                        count=1,
+                                        slave=self.config.SLAVE_ID)
+                if OEG_STATUS_right.isError() or OEG_STATUS_left.isError():
+                    self.logger.error(f"Unexpected error while reading OEG_STATUS registers: {e}")
+                    return False
+                
+                ishomed_right = is_nth_bit_on(1, OEG_STATUS_right)
+                ishomed_left = is_nth_bit_on(1, OEG_STATUS_left)
+
+                if ishomed_right == 1 and ishomed_left == 1:
+                    return True
+                await asyncio.sleep(0.2)
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while homing motors: {e}")
+            return False
+
+
+                    

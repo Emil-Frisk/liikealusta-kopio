@@ -1,18 +1,11 @@
-def test_function():
-    pass
-    
-def shift_bits(number, shift_bit_amount):
-        number = number & 0xffff
-        result = number >> shift_bit_amount
-        return result
+import os
+import sys
 
-test_function()
 
-resolution = 0.00000095367431640625
+src_Dir = os.path.abspath("")
+test = sys.path
 
-x = 1.0/resolution
-print(f"Resolution: {x}")
 
-shifted_bits = shift_bits(1048576, 4)
-print(f"shifted bits: {shifted_bits}")
 
+a = 20
+print(f"Src directory: {src_Dir}")

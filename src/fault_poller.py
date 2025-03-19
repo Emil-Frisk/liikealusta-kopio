@@ -6,9 +6,7 @@ from config import Config
 from setup_logging import setup_logging
 from ModbusClients import ModbusClients
 from launch_params import handle_launch_params
-import requests
-
-
+import asyncio
 
 async def main():
     logger = setup_logging("faul_poller", "faul_poller.log")
@@ -21,15 +19,15 @@ async def main():
 
     try:
         while(True):
-            sleep(config.POLLING_TIME_INTERVAL)
+            await asyncio.sleep(config.POLLING_TIME_INTERVAL)
             # clients.check_and_reset_tids()
             print("I am pretending to be alive")
 
-            if (clients.check_fault_stauts()):
-                left_response, right_response = clients.get_recent_fault()
-                # Check that its not a critical fault
-                if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
-                    await clients.fault_reset()
+            # if (clients.check_fault_stauts()):
+            #     left_response, right_response = clients.get_recent_fault()
+            #     # Check that its not a critical fault
+            #     if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
+            #         await clients.fault_reset()
 
             # print("Transaction id: " + str(left_response))
             # print("Count: " + str(right_response))
@@ -42,4 +40,4 @@ async def main():
         clients.cleanup()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

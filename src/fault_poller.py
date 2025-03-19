@@ -14,24 +14,21 @@ async def main():
     clients = ModbusClients(config=config, logger=logger)
     atexit.register(clients.cleanup)
 
-    # await clients.connect()
+    await clients.connect()
     logger.info(f"Starting polling loop with polling time interval: {config.POLLING_TIME_INTERVAL}")
 
     try:
         while(True):
             await asyncio.sleep(config.POLLING_TIME_INTERVAL)
-            # clients.check_and_reset_tids()
-            print("I am pretending to be alive")
+            clients.check_and_reset_tids()
 
             # if (clients.check_fault_stauts()):
             #     left_response, right_response = clients.get_recent_fault()
+            #     print("Fault Poller fault status left: " + str(left_response))
+            #     print("Fault Poller fault status right" + str(right_response))
             #     # Check that its not a critical fault
             #     if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
             #         await clients.fault_reset()
-
-            # print("Transaction id: " + str(left_response))
-            # print("Count: " + str(right_response))
-            
     except KeyboardInterrupt:
         logger.info("Polling stopped by user")
     except Exception as e:

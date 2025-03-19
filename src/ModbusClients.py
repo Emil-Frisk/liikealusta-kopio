@@ -1,8 +1,6 @@
 
 from pymodbus.client import AsyncModbusTcpClient
 from typing import Optional
-import pymodbus.exceptions
-import requests
 from utils import is_nth_bit_on
 import asyncio
 from pymodbus.exceptions import ConnectionException, ModbusIOException
@@ -32,7 +30,7 @@ class ModbusClients:
 
             self.client_right = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_RIGHT,
-                port=self.config.SERVER_PORT
+                port=self.config.SERVER_PORT_SECOND
             )
 
             left_connected = False
@@ -42,19 +40,18 @@ class ModbusClients:
             attempt_right = 0
 
             while (not left_connected or not right_connected) and \
-            (attempt_left_count < max_attempts or attempt_right_count < max_attempts):
+            (attempt_left < max_attempts or attempt_right < max_attempts):
                 if not left_connected:
                     left_connected = await self.client_left.connect()
-                    attempt_left_count += 1
+                    attempt_left += 1
                     if not left_connected:
                          self.logger.debug(f"Left connection attempt {attempt_left} failed")
 
                 if not right_connected:
                     right_connected = await self.client_right.connect()
-                    attempt_right_count += 1
+                    attempt_right += 1
                     if not right_connected:
                          self.logger.debug(f"Right connection attempt {attempt_right} failed")
-
                 
             if left_connected and right_connected:
                 self.logger.info("Both clients connected succesfully")
@@ -70,8 +67,8 @@ class ModbusClients:
 
     def check_and_reset_tids(self):
         for client in [self.client_left, self.client_right]:
-            if client and client.transaction.next_tid >= self.config.LAST_TID:
-                client.transaction.next_tid = self.config.START_TID
+            if client and client.ctx.next_tid >= self.config.LAST_TID:
+                client.ctx.next_tid = self.config.START_TID
                 self.logger.debug(f"Reset TID for client")
 
     async def get_recent_fault(self) -> tuple[Optional[int], Optional[int]]:

@@ -62,21 +62,21 @@ async def init(app):
         homed = await clients.home()
         if homed:
             #MAX POSITION LIMITS FOR BOTH MOTORS
-            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28])
-            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28])
+            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28], slave=config.SLAVE_ID)
 
             #MIN POSITION LIMITS FOR BOTH MOTORS
-            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0])
-            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0])
+            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0], slave=config.SLAVE_ID)
 
             #Analog max velocity. Max speed for actuator is set to 338mm/sec, for testing we'll set it to 50mm/sec.
             #REVS = speed/lead. REVS = 50mm/s / 5.08mm/rev = 9,842519685039370078740157480315 REVS 
-            await clients.client_right.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9])
-            await clients.client_left.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9])
+            await clients.client_right.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9], slave=config.SLAVE_ID)
 
             #Analog max acceleration. This is set to 50 REVS/S/S for testing.
-            await clients.client_right.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50])
-            await clients.client_left.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50])
+            await clients.client_right.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
 
             #Analog input channel set to modbus ctrl
             await clients.client_right.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
@@ -92,8 +92,8 @@ async def init(app):
             position_client_right = (sum(pfeedback_client_right) / 28.937007874015748031496062992126) * UPOS16_MAX
             position_client_left = (sum(pfeedback_client_left) / 28.937007874015748031496062992126) * UPOS16_MAX
             
-            await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right)
-            await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left)
+            await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=config.SLAVE_ID)
 
             # TODO Ipeak pitää varmistaa vielä onhan 128 arvo = 1 Ampeeri 
             await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)

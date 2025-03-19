@@ -341,8 +341,6 @@ class ModbusClients:
 
             ### homing order was success for both motos make a poller coroutine to poll when the homing is done.
             #Checks if both actuators are homed or not. Returns True when homed.
-            
-            # TODO - tee tähän timer funktio joka exittaa loopista jos menee yli 30 s sillo jokin pielessä
             homing_max_duration = 30
             start_time = time.time()
             elapsed_time = 0

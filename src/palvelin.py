@@ -7,6 +7,9 @@ import atexit
 from setup_logging import setup_logging
 from launch_params import handle_launch_params
 from module_manager import ModuleManager
+import subprocess
+from time import sleep
+from utils import is_nth_bit_on
 
 def cleanup(app):
     app.logger.info("cleanup function executed!")
@@ -45,12 +48,64 @@ async def init(app):
 
         app.app_config = config
         app.logger = logger
+        
         app.module_manager = module_manager
         app.is_process_done = True
         app.fault_poller_pid = fault_poller_pid
         app.clients = clients
 
         atexit.register(lambda: cleanup(app))
+        
+        homed = await clients.home()
+        if homed:
+            #MAX POSITION LIMITS FOR BOTH MOTORS
+            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406.811023622047244094488188977, 28], slave=config.SLAVE_ID)
+
+            #MIN POSITION LIMITS FOR BOTH MOTORS
+            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801.181102362204724409448818898, 0], slave=config.SLAVE_ID)
+
+            #Analog max velocity. Max speed for actuator is set to 338mm/sec, for testing we'll set it to 50mm/sec.
+            #REVS = speed/lead. REVS = 50mm/s / 5.08mm/rev = 9,842519685039370078740157480315 REVS 
+            await clients.client_right.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214.527559055118110236220472444, 9], slave=config.SLAVE_ID)
+
+            #Analog max acceleration. This is set to 50 REVS/S/S for testing.
+            await clients.client_right.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
+            await clients.client_left.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
+
+            #Analog input channel set to modbus ctrl
+            await clients.client_right.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
+
+            #Read position feedback registers. 
+            pfeedback_client_right = await clients.client_right.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
+            pfeedback_client_left = await clients.client_left.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
+            
+            UPOS16_MAX = 65535
+            
+            #Homed position for both actuators
+            position_client_right = (sum(pfeedback_client_right) / 28.937007874015748031496062992126) * UPOS16_MAX
+            position_client_left = (sum(pfeedback_client_left) / 28.937007874015748031496062992126) * UPOS16_MAX
+            
+            await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=config.SLAVE_ID)
+
+            # TODO Ipeak pitää varmistaa vielä onhan 128 arvo = 1 Ampeeri 
+            await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
+
+
+            #Finally 
+            await clients.client_right.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
+        # TODO - homee moottorit ja tarkista että se on homattu ja enabloi alternative operation mode
+        # kun laittaa position osottamaan siihen missä se on paikallaan,
+        # eli kato missä mottori on nyt ja laita analog 
+        #modbus cntrl arvo osottamaan siihen kohtaan
+        # yhistä moottoreihin ja returnaa moottoreiden connection
+        # instancet apille joka asettaa ne global variableihin
         
     except Exception as e:
         logger.error(f"Initialization failed: {e}")

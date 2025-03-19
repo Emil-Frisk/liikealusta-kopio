@@ -45,7 +45,7 @@ async def init(app):
         app.monitor_task = asyncio.create_task(monitor_fault_poller(app))
 
         # Connect to both drivers
-        # await clients.connect()   
+        await clients.connect()   
 
         app.app_config = config
         app.logger = logger

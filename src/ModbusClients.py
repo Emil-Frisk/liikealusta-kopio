@@ -5,6 +5,7 @@ from utils import is_nth_bit_on
 import asyncio
 from pymodbus.exceptions import ConnectionException, ModbusIOException
 from time import sleep
+import time
 from utils import IEG_MODE_bitmask_alternative, IEG_MODE_bitmask_default
 
 class ModbusClients:
@@ -305,16 +306,47 @@ class ModbusClients:
             self.client_right.close()    
 
     async def home(self):
-        try:         
-            await self.client_right.write_register(address=self.config.IEG_MOTION,
-                                        value=256,
-                                        slave=self.config.SLAVE_ID)
-            await self.client_left.write_register(address=self.config.IEG_MOTION,
-                                        value=256,
-                                        slave=self.config.SLAVE_ID)
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_right = False
+            success_left = False
+            max_retries = self.max_retries
             
+            while max_retries > attempt_left and max_retries > attempt_right:
+                if not success_left:
+                    success_left = await self.client_right.write_register(address=self.config.IEG_MOTION,
+                                            value=256,
+                                            slave=self.config.SLAVE_ID)
+                if not success_right:
+                    success_right = await self.client_left.write_register(address=self.config.IEG_MOTION,
+                                            value=256,
+                                            slave=self.config.SLAVE_ID)
+            
+                if success_left.isError():
+                    attempt_left += 1
+                    self.logger.error(f"Failed to initiate homing command on left. Attempt {attempt_left}")
+                else:
+                    success_left = True
+
+                if success_right.isError():
+                    attempt_right += 1
+                    self.logger.error(f"Failed to initiate homing command on right motor. Attempt {attempt_right}")
+                else:
+                    success_right = True
+            
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to initiate homing command on both motors. Left: {success_left} | right: Left: {success_right}")
+                return False
+
+            ### homing order was success for both motos make a poller coroutine to poll when the homing is done.
             #Checks if both actuators are homed or not. Returns True when homed.
-            while True:
+            
+            # TODO - tee tähän timer funktio joka exittaa loopista jos menee yli 30 s sillo jokin pielessä
+            homing_max_duration = 30
+            start_time = time.time()
+            elapsed_time = 0
+            while elapsed_time <= homing_max_duration:
                 OEG_STATUS_right = await self.client_right.read_holding_registers(address=self.config.OEG_STATUS,
                                     count=1,
                                     slave=self.config.SLAVE_ID)
@@ -322,16 +354,26 @@ class ModbusClients:
                 OEG_STATUS_left = await self.client_left.read_holding_registers(address=self.config.OEG_STATUS,
                                         count=1,
                                         slave=self.config.SLAVE_ID)
+                
                 if OEG_STATUS_right.isError() or OEG_STATUS_left.isError():
                     self.logger.error(f"Unexpected error while reading OEG_STATUS registers: {e}")
-                    return False
+                    await asyncio.sleep(0.2)
+                    continue
                 
-                ishomed_right = is_nth_bit_on(1, OEG_STATUS_right)
-                ishomed_left = is_nth_bit_on(1, OEG_STATUS_left)
+                ishomed_right = is_nth_bit_on(1, OEG_STATUS_right[0])
+                ishomed_left = is_nth_bit_on(1, OEG_STATUS_left[0])
 
-                if ishomed_right == 1 and ishomed_left == 1:
+                # Success
+                if ishomed_right and ishomed_left:
+                    self.logger.info(f"Both motors homes successfully: {e}")
                     return True
+                
                 await asyncio.sleep(0.2)
+                elapsed_time = time.time() - start_time
+            
+            self.logger.error(f"Failed to home both motors within the time limit of: {homing_max_duration}")
+            return False
+
 
         except Exception as e:
             self.logger.error(f"Unexpected error while homing motors: {e}")

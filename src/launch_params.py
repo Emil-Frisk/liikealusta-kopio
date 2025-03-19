@@ -18,7 +18,7 @@ def handle_launch_params():
     config = Config()
     config.MODULE_NAME = module_name
 
-    if (module_name == "fault_poller.py"):
+    if ("fault_poller.py" in module_name):
         config.START_TID = 30000
         config.LAST_TID = 40000
     elif (module_name == "palvelin.py"):

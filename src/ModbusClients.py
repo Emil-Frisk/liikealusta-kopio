@@ -25,12 +25,12 @@ class ModbusClients:
         try:
             self.client_left = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_LEFT,
-                port=self.config.SERVER_PORT
+                port=self.config.PORT
             )
 
             self.client_right = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_RIGHT,
-                port=self.config.SERVER_PORT_SECOND
+                port=self.config.PORT
             )
 
             left_connected = False
@@ -55,6 +55,11 @@ class ModbusClients:
                 
             if left_connected and right_connected:
                 self.logger.info("Both clients connected succesfully")
+
+                if "fault_poller.py" in self.config.MODULE_NAME:
+                    self.client_left.ctx.next_tid = self.config.START_TID
+                    self.client_right.ctx.next_tid = self.config.START_TID
+
                 return True
             else: 
                 self.logger.warning(f"Connection failed after {max_attempts} attempts. "
@@ -163,7 +168,7 @@ class ModbusClients:
         """
         try:
             result = False
-
+            
             left_response = await self.client_left.read_holding_registers(
                 address=self.config.DRIVER_STATUS_ADDRESS,
                 count=1,

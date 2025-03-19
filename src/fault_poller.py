@@ -20,15 +20,16 @@ async def main():
     try:
         while(True):
             await asyncio.sleep(config.POLLING_TIME_INTERVAL)
+            
             clients.check_and_reset_tids()
 
-            # if (clients.check_fault_stauts()):
-            #     left_response, right_response = clients.get_recent_fault()
-            #     print("Fault Poller fault status left: " + str(left_response))
-            #     print("Fault Poller fault status right" + str(right_response))
-            #     # Check that its not a critical fault
-            #     if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
-            #         await clients.fault_reset()
+            if (await clients.check_fault_stauts()):
+                left_response, right_response = clients.get_recent_fault()
+                print("Fault Poller fault status left: " + str(left_response))
+                # print("Fault Poller fault status right" + str(right_response))
+                # Check that its not a critical fault
+                if (left_response not in [1, 7, 8] and right_response not in [1, 7, 8]):
+                    await clients.fault_reset()
     except KeyboardInterrupt:
         logger.info("Polling stopped by user")
     except Exception as e:

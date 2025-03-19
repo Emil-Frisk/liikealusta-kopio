@@ -34,6 +34,11 @@ async def monitor_fault_poller(app):
                 del app.module_manager.processes[pid]
         await asyncio.sleep(10)  # Check every 10 seconds
 
+def convert_to_revs(pfeedback):
+    decimal = pfeedback[0] / 65535
+    num = pfeedback[1]
+    return num + decimal
+
 async def init(app):
     try:
         logger = setup_logging("server", "server.log")
@@ -59,11 +64,11 @@ async def init(app):
         
         homed = await clients.home()
         if homed:
-            #MAX POSITION LIMITS FOR BOTH MOTORS
+            #MAX POSITION LIMITS FOR BOTH MOTORS | 147 mm
             await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
             await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
 
-            #MIN POSITION LIMITS FOR BOTH MOTORS
+            #MIN POSITION LIMITS FOR BOTH MOTORS || 2 mm
             await clients.client_right.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801, 0], slave=config.SLAVE_ID)
             await clients.client_left.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801, 0], slave=config.SLAVE_ID)
 
@@ -72,7 +77,7 @@ async def init(app):
             await clients.client_right.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214, 9], slave=config.SLAVE_ID)
             await clients.client_left.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[55214, 9], slave=config.SLAVE_ID)
 
-            #Analog max acceleration. This is set to 50 REVS/S/S for testing.
+            #Analog max acceleration. This is set to 50 REVS/S/S for testing. | 254 mm/s/s
             await clients.client_right.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
             await clients.client_left.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 50], slave=config.SLAVE_ID)
 
@@ -81,15 +86,21 @@ async def init(app):
             await clients.client_left.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
 
             #Read position feedback registers. 
-            pfeedback_client_right = await clients.client_right.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
             pfeedback_client_left = await clients.client_left.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
             
             UPOS16_MAX = 65535
-            
+            revs_left = convert_to_revs(pfeedback_client_left)
+
             #Homed position for both actuators
-            position_client_right = math.floor((sum(pfeedback_client_right) / 28.937007874015748031496062992126) * UPOS16_MAX)
-            position_client_left = math.floor((sum(pfeedback_client_left) / 28.937007874015748031496062992126) * UPOS16_MAX)
-            
+            ## Percentile = x - pos_min / (pos_max - pos_min)
+            ## Assuming that home is the same for both motors ( SHOULD BE !)
+            POS_MIN_REVS = 0.393698024
+            POS_MAX_REVS = 28.937007874015748031496062992126
+            modbus_percentile = (revs_left - POS_MIN_REVS) / (POS_MAX_REVS - POS_MIN_REVS)
+            max(0, min(modbus_percentile, 1))
+
+            position_client_right = math.floor(modbus_percentile * UPOS16_MAX)
+            position_client_left = math.floor(modbus_percentile * UPOS16_MAX)
 
             await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=config.SLAVE_ID)
@@ -98,16 +109,9 @@ async def init(app):
             await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
 
-
-            #Finally 
+            # Finally - Ready for operation
             await clients.client_right.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
-        # TODO - homee moottorit ja tarkista että se on homattu ja enabloi alternative operation mode
-        # kun laittaa position osottamaan siihen missä se on paikallaan,
-        # eli kato missä mottori on nyt ja laita analog 
-        #modbus cntrl arvo osottamaan siihen kohtaan
-        # yhistä moottoreihin ja returnaa moottoreiden connection
-        # instancet apille joka asettaa ne global variableihin
         
     except Exception as e:
         logger.error(f"Initialization failed: {e}")

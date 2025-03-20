@@ -63,7 +63,7 @@ async def init(app):
         atexit.register(lambda: cleanup(app))
         
         homed = await clients.home()
-        if homed:
+        if homed: ## Prepare motor parameters for operation
             #MAX POSITION LIMITS FOR BOTH MOTORS | 147 mm
             await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
             await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
@@ -97,7 +97,7 @@ async def init(app):
             POS_MIN_REVS = 0.393698024
             POS_MAX_REVS = 28.937007874015748031496062992126
             modbus_percentile = (revs_left - POS_MIN_REVS) / (POS_MAX_REVS - POS_MIN_REVS)
-            max(0, min(modbus_percentile, 1))
+            modbus_percentile = max(0, min(modbus_percentile, 1))
 
             position_client_right = math.floor(modbus_percentile * UPOS16_MAX)
             position_client_left = math.floor(modbus_percentile * UPOS16_MAX)
@@ -134,7 +134,6 @@ async def create_app():
             app.logger.error("Failed to stop motors?") # Mitäs sitten :D
 
     return app
-
 if __name__ == '__main__':
     async def run_app():
         app = await create_app()

@@ -9,7 +9,7 @@ from launch_params import handle_launch_params
 from module_manager import ModuleManager
 import subprocess
 from time import sleep
-from utils import is_nth_bit_on
+from utils import is_nth_bit_on, IEG_MODE_bitmask_enable
 import math
 
 def cleanup(app):
@@ -33,6 +33,27 @@ async def monitor_fault_poller(app):
                 app.logger.info(f"Restarted fault_poller with PID: {new_pid}")
                 del app.module_manager.processes[pid]
         await asyncio.sleep(10)  # Check every 10 seconds
+
+async def get_modbuscntrl_val(clients, config):
+        pfeedback_client_left = await clients.client_left.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
+        pfeedback_client_right = await clients.client_right.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
+        
+        UPOS16_MAX = 65535
+        revs_left = convert_to_revs(pfeedback_client_left)
+        revs_right = convert_to_revs(pfeedback_client_right)
+
+        ## Percentile = x - pos_min / (pos_max - pos_min)
+        POS_MIN_REVS = 0.393698024
+        POS_MAX_REVS = 28.937007874015748031496062992126
+        modbus_percentile_left = (revs_left - POS_MIN_REVS) / (POS_MAX_REVS - POS_MIN_REVS)
+        modbus_percentile_right = (revs_right - POS_MIN_REVS) / (POS_MAX_REVS - POS_MIN_REVS)
+        modbus_percentile = max(0, min(modbus_percentile, 1))
+
+        position_client_right = math.floor(modbus_percentile_left * UPOS16_MAX)
+        position_client_left = math.floor(modbus_percentile_right * UPOS16_MAX)
+
+        return position_client_left, position_client_right
+
 
 def convert_to_revs(pfeedback):
     decimal = pfeedback[0] / 65535
@@ -85,22 +106,7 @@ async def init(app):
             await clients.client_right.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
 
-            #Read position feedback registers. 
-            pfeedback_client_left = await clients.client_left.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
-            
-            UPOS16_MAX = 65535
-            revs_left = convert_to_revs(pfeedback_client_left)
-
-            #Homed position for both actuators
-            ## Percentile = x - pos_min / (pos_max - pos_min)
-            ## Assuming that home is the same for both motors ( SHOULD BE !)
-            POS_MIN_REVS = 0.393698024
-            POS_MAX_REVS = 28.937007874015748031496062992126
-            modbus_percentile = (revs_left - POS_MIN_REVS) / (POS_MAX_REVS - POS_MIN_REVS)
-            modbus_percentile = max(0, min(modbus_percentile, 1))
-
-            position_client_right = math.floor(modbus_percentile * UPOS16_MAX)
-            position_client_left = math.floor(modbus_percentile * UPOS16_MAX)
+            (position_client_right, position_client_left) = await get_modbuscntrl_val(clients, config)
 
             await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=config.SLAVE_ID)
@@ -112,6 +118,10 @@ async def init(app):
             # Finally - Ready for operation
             await clients.client_right.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
             await clients.client_left.write_register(address=config.COMMAND_MODE, value=2, slave=config.SLAVE_ID)
+
+            # Enable motors
+            await clients.client_right.write_register(address=config.IEG_MODE, value=IEG_MODE_bitmask_enable(2), slave=config.SLAVE_ID)
+            await clients.client_left.write_register(address=config.IEG_MODE, value=IEG_MODE_bitmask_enable(2), slave=config.SLAVE_ID)
         
     except Exception as e:
         logger.error(f"Initialization failed: {e}")
@@ -120,9 +130,26 @@ async def create_app():
     app = Quart(__name__)
     await init(app)
 
-    @app.route("/write", methods=['post'])
+    @app.route("/write", methods=['get'])
     async def write():
-        pass
+        direction = request.args.get('direction')  
+        if (direction == "r"):
+            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.config)
+
+            position_client_right = max(0, min((position_client_right * 1.1), 1))
+
+            await app.clients.client_right.write_register(address=app.config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.config.SLAVE_ID)
+
+        elif (direction == "l"):
+            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.config)
+
+            position_client_left = max(0, min((position_client_left * 0.9), 1))
+
+            await app.clients.client_right.write_register(address=app.config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.config.SLAVE_ID)
+        else:
+            app.logger.error("Wrong parameter use direction (l | r)")
 
     @app.route('/stop', methods=['GET'])
     async def stop_motors():

@@ -17,6 +17,11 @@ def IEG_MODE_bitmask_alternative(number):
         number = number & 0xFFFF
         return number & mask
 
+def IEG_MODE_bitmask_enable(number):
+        mask = (1 << ENABLE_MAINTAINED_BIT)
+        number = number & 0xFFFF
+        return number & mask
+
 # UVEL32 8.8 | UACC 12.4 | UCUR 9.7
 def shift_bits(number, shift_bit_amount):
         number = number & 0xffff

@@ -26,17 +26,17 @@ class ModbusClients:
         try:
             self.client_left = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_LEFT,
-                port=self.config.PORT
+                port=self.config.SERVER_PORT 
             )
 
             self.client_right = AsyncModbusTcpClient(
                 host=self.config.SERVER_IP_RIGHT,
-                port=self.config.PORT
+                port=self.config.SERVER_PORT  
             )
 
             left_connected = False
             right_connected = False
-            max_attempts = self.config.CONNECTION_TRY_COUNT
+            max_attempts = 3
             attempt_left = 0
             attempt_right = 0
 
@@ -171,12 +171,12 @@ class ModbusClients:
             result = False
             
             left_response = await self.client_left.read_holding_registers(
-                address=self.config.DRIVER_STATUS_ADDRESS,
+                address=self.config.OEG_STATUS,
                 count=1,
                 slave=self.config.SLAVE_ID
             )
             right_response = await self.client_right.read_holding_registers(
-                address=self.config.DRIVER_STATUS_ADDRESS,
+                address=self.config.OEG_STATUS,
                 count=1,
                 slave=self.config.SLAVE_ID
             )
@@ -313,27 +313,37 @@ class ModbusClients:
             success_left = False
             max_retries = self.max_retries
             
+            response_left = await self.client_right.write_register(address=self.config.IEG_MOTION,
+                                value=0,
+                                slave=self.config.SLAVE_ID)
+            response_right = await self.client_left.write_register(address=self.config.IEG_MOTION,
+                                    value=0,
+                                    slave=self.config.SLAVE_ID)
+
             while max_retries > attempt_left and max_retries > attempt_right:
                 if not success_left:
-                    success_left = await self.client_right.write_register(address=self.config.IEG_MOTION,
+                    response_left = await self.client_right.write_register(address=self.config.IEG_MOTION,
                                             value=256,
                                             slave=self.config.SLAVE_ID)
                 if not success_right:
-                    success_right = await self.client_left.write_register(address=self.config.IEG_MOTION,
+                    response_right = await self.client_left.write_register(address=self.config.IEG_MOTION,
                                             value=256,
                                             slave=self.config.SLAVE_ID)
             
-                if success_left.isError():
+                if response_left.isError():
                     attempt_left += 1
                     self.logger.error(f"Failed to initiate homing command on left. Attempt {attempt_left}")
                 else:
                     success_left = True
 
-                if success_right.isError():
+                if response_right.isError():
                     attempt_right += 1
                     self.logger.error(f"Failed to initiate homing command on right motor. Attempt {attempt_right}")
                 else:
                     success_right = True
+                
+                if success_left and success_right:
+                    break
             
             if not success_left or not success_right:
                 self.logger.error(f"Failed to initiate homing command on both motors. Left: {success_left} | right: Left: {success_right}")

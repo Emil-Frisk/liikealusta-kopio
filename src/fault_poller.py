@@ -1,5 +1,3 @@
-from pymodbus.client import ModbusTcpClient
-import pymodbus.pdu.register_message as pdu_reg
 import atexit
 from time import sleep
 from config import Config
@@ -14,15 +12,19 @@ async def main():
     clients = ModbusClients(config=config, logger=logger)
     atexit.register(clients.cleanup)
 
-    await clients.connect()
+    connected = await clients.connect()
+    if (not connected):
+        return
+        
     logger.info(f"Starting polling loop with polling time interval: {config.POLLING_TIME_INTERVAL}")
 
     try:
         while(True):
-            await asyncio.sleep(config.POLLING_TIME_INTERVAL)
+            # await asyncio.sleep(config.POLLING_TIME_INTERVAL)
+            await asyncio.sleep(0.5)
             
             clients.check_and_reset_tids()
-
+            await clients.fault_reset()
             if (await clients.check_fault_stauts()):
                 left_response, right_response = clients.get_recent_fault()
                 print("Fault Poller fault status left: " + str(left_response))

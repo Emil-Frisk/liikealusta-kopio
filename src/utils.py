@@ -17,6 +17,11 @@ def IEG_MODE_bitmask_alternative(number):
         number = number & 0xFFFF
         return number & mask
 
+def IEG_MODE_bitmask_alternative_real(number):
+        mask = (1 << ALTERNATE_MODE_BIT) |(1 << ENABLE_MAINTAINED_BIT) 
+        number = number & 0xFFFF
+        return number & mask
+
 def IEG_MODE_bitmask_enable(number):
         mask = (1 << ENABLE_MAINTAINED_BIT)
         number = number & 0xFFFF

@@ -142,7 +142,7 @@ async def shutdown(app):
     """Gracefully shuts down the server."""
     app.logger.info("Shutdown request received. Cleaning up...")
     
-    ### TODO - pitäskö poistaa meiä settingsti sillä komennolla? (se homaakin automaattisesti)
+    await app.clients.reset_motors()
 
     # Stop fault poller task if running
     if hasattr(app, 'monitor_task') and app.monitor_task:

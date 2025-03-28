@@ -11,6 +11,7 @@ from time import sleep
 from utils import is_nth_bit_on, IEG_MODE_bitmask_enable, IEG_MODE_bitmask_alternative_real
 import math
 import sys
+import os
 
 def cleanup(app):
     app.logger.info("cleanup function executed!")
@@ -137,6 +138,29 @@ async def init(app):
     except Exception as e:
         logger.error(f"Initialization failed: {e}")
 
+async def shutdown(app):    
+    """Gracefully shuts down the server."""
+    app.logger.info("Shutdown request received. Cleaning up...")
+    
+    ### TODO - pitäskö poistaa meiä settingsti sillä komennolla? (se homaakin automaattisesti)
+
+    # Stop fault poller task if running
+    if hasattr(app, 'monitor_task') and app.monitor_task:
+        app.monitor_task.cancel()
+        await asyncio.sleep(1)  # Allow task to cancel properly
+
+    # Cleanup Modbus clients
+    if hasattr(app, 'clients') and app.clients:
+        app.clients.cleanup()
+
+    # Cleanup modules
+    if hasattr(app, 'module_manager') and app.module_manager:
+        app.module_manager.cleanup_all()
+
+    app.logger.info("Cleanup complete. Shutting down server.")
+    os._exit(0)  # Forces the process to exit  
+
+
 async def create_app():
     app = Quart(__name__)
     await init(app)
@@ -192,6 +216,13 @@ async def create_app():
             await app.clients.client_left.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.app_config.SLAVE_ID)
         else:
             app.logger.error("Wrong parameter use direction (l | r)")
+    
+    @app.route('/shutdown', methods=['GET'])
+    async def shutdown_server():
+        """Shuts down the server when called."""
+        app.logger.info("Shutdown request received.")
+        await shutdown()
+        return {"message": "Server is shutting down..."}, 200
 
     @app.route('/stop', methods=['GET'])
     async def stop_motors():

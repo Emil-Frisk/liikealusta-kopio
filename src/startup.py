@@ -1,6 +1,8 @@
 import sys
 import json
+import os
 import subprocess
+from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSpinBox
 
 CONFIG_FILE = "config.json"
@@ -8,6 +10,7 @@ CONFIG_FILE = "config.json"
 class ServerStartupGUI(QWidget):
     def __init__(self):
         super().__init__()
+        self.project_root = ""
         self.setWindowTitle("Server Startup")
         self.setGeometry(100, 100, 400, 250)
 
@@ -45,6 +48,28 @@ class ServerStartupGUI(QWidget):
 
         self.setLayout(self.layout)
 
+        
+    def get_project_root(self):
+        # Start from the directory of the current script
+            current_dir = Path(__file__).resolve().parent
+            # Traverse up until you find the 'venv' folder or another marker
+            for parent in current_dir.parents:
+                if (parent / "venv").exists():  # Check if 'venv' folder exists
+                    return parent
+            raise FileNotFoundError("Could not find project root (containing 'venv' folder)")
+
+    def get_venv_python(self):
+        # Get the project root
+        project_root = self.get_project_root()
+        self.project_root = project_root
+        # Determine the path to the venv's Python executable based on the OS
+        venv_python = project_root / "venv" / "Scripts" / "python.exe"
+        
+        # Verify the Python executable exists
+        if not venv_python.exists():
+            raise FileNotFoundError(f"Python executable not found at: {venv_python}")
+        return str(venv_python)
+
     def load_config(self):
         """Load the last used IPs and frequency from config.json."""
         try:
@@ -76,7 +101,10 @@ class ServerStartupGUI(QWidget):
 
         # Start Quart server as a separate process
         try:
-            subprocess.Popen(["python", "src\\palvelin.py", "--ip1", ip1, "--ip2", ip2, "--freq", str(freq)])
+            venv_python = self.get_venv_python()
+            server_path = self.project_root / "src" / "palvelin.py"
+
+            subprocess.Popen([venv_python, server_path, "--server_left", ip1, "--server_right", ip2, "--freq", str(freq)])
             QMessageBox.information(self, "Success", "Server started successfully!")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to start server: {str(e)}")

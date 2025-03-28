@@ -9,6 +9,7 @@ def handle_launch_params():
     parser.add_argument("--port", type=int, help="port number")
     parser.add_argument("--server_left", type=str, help="left side motor ip")
     parser.add_argument("--server_right", type=str, help="right side motor ip")
+    parser.add_argument("--freq", type=str, help="Expected motor command frequency")
     parser.add_argument("--slaveid", type=int, help="drivers slave id")
     parser.add_argument("--polling_time_interval", type=int, help="polling time interval")
     parser.add_argument("--start_tid", type=int, help="start tid")
@@ -21,7 +22,7 @@ def handle_launch_params():
     if ("fault_poller.py" in module_name):
         config.START_TID = 30000
         config.LAST_TID = 40000
-    elif (module_name == "palvelin.py"):
+    elif (module_name in "palvelin.py"):
         config.START_TID = 1
         config.LAST_TID = 10000
 
@@ -31,7 +32,9 @@ def handle_launch_params():
     if (args.server_left):
         config.SERVER_IP_LEFT = args.server_left
     if (args.server_right):
-        config.SERVER_IP_RIGHT = args.server2_right
+        config.SERVER_IP_RIGHT = args.server_right
+    if (args.freq):
+        config.POS_UPDATE_HZ = args.freq
     if (args.slaveid):
         config.SLAVE_ID = args.slaveid
     if (args.polling_time_interval):

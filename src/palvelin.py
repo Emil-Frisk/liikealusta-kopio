@@ -41,8 +41,7 @@ async def get_modbuscntrl_val(clients, config):
         the percentile where they are in the current max_rev - min_rev range.
         After that we multiply it with the maxium modbuscntrl val (10k)
         """
-        pfeedback_client_left = await clients.client_left.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
-        pfeedback_client_right = await clients.client_right.read_holding_registers(address=config.PFEEDBACK_POSITION, count=2, slave=config.SLAVE_ID)
+        pfeedback_client_left, pfeedback_client_right = await clients.get_current_revs()
         
         revs_left = convert_to_revs(pfeedback_client_left)
         revs_right = convert_to_revs(pfeedback_client_right)
@@ -92,49 +91,41 @@ async def init(app):
 
         atexit.register(lambda: cleanup(app))
         
-        await clients.client_right.write_register(address=config.COMMAND_MODE, value=config.DISABLED, slave=config.SLAVE_ID)
-        await clients.client_left.write_register(address=config.COMMAND_MODE, value=config.DISABLED, slave=config.SLAVE_ID)
+        await clients.set_host_command_mode(0)
         homed = await clients.home()
         if homed: ## Prepare motor parameters for operation
-            #MAX POSITION LIMITS FOR BOTH MOTORS | 147 mm
-            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
-            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MAXIMUM, values=[61406, 28], slave=config.SLAVE_ID)
+            ### MAX POSITION LIMITS FOR BOTH MOTORS | 147 mm
+            await clients.set_analog_pos_max(61406, 28)
 
-            # #MIN POSITION LIMITS FOR BOTH MOTORS || 2 mm
-            await clients.client_right.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801, 0], slave=config.SLAVE_ID)
-            await clients.client_left.write_registers(address=config.ANALOG_POSITION_MINIMUM, values=[25801, 0], slave=config.SLAVE_ID)
+            ### MIN POSITION LIMITS FOR BOTH MOTORS || 2 mm
+            await clients.set_analog_pos_min(25801, 0)
 
-            # #Analog max velocity. Max speed for actuator is set to 338mm/sec, for testing we'll set it to 50mm/sec.
-            # #REVS = speed/lead. REVS = 50mm/s / 5.08mm/rev = 9,842519685039370078740157480315 REVS 
-            await clients.client_right.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[0, 768], slave=config.SLAVE_ID)
-            await clients.client_left.write_registers(address=config.ANALOG_VEL_MAXIMUM, values=[0, 768], slave=config.SLAVE_ID)
+            ### Velocity whole number is in 8.8 where decimal is in little endian format,
+            ### meaning smaller bits come first, so 1 rev would be 2^8
+            await clients.set_analog_vel_max(0, 768)
 
-            # #Analog max acceleration. This is set to 50 REVS/S/S for testing. | 254 mm/s/s
-            await clients.client_right.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 48], slave=config.SLAVE_ID)
-            await clients.client_left.write_registers(address=config.ANALOG_ACCELERATION_MAXIMUM, values=[0, 48], slave=config.SLAVE_ID)
+            ### UACC32 whole number split in 12.4 format
+            await clients.set_analog_acc_max(0, 48)
 
-            # #Analog input channel set to modbus ctrl
-            await clients.client_right.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
-            await clients.client_left.write_register(address=config.ANALOG_INPUT_CHANNEL,value=2,slave=config.SLAVE_ID)
+            ## Analog input channel set to use modbusctrl (2)
+            await clients.set_analog_input_channel(2)
 
             (position_client_left, position_client_right) = await get_modbuscntrl_val(clients, config)
 
             # modbus cntrl 0-10k
-            await clients.client_right.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=config.SLAVE_ID)
-            await clients.client_left.write_register(address=config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=config.SLAVE_ID)
+            await clients.set_analog_modbus_cntrl((position_client_left, position_client_right))
 
             # TODO Ipeak pitää varmistaa vielä onhan 128 arvo = 1 Ampeeri 
             # await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
             # await clients.client_left.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
 
             # # Finally - Ready for operation
-            await clients.client_right.write_register(address=config.COMMAND_MODE, value=config.ANALOG_POSITION, slave=config.SLAVE_ID)
-            await clients.client_left.write_register(address=config.COMMAND_MODE, value=config.ANALOG_POSITION, slave=config.SLAVE_ID)
+            await clients.set_host_command_mode(config.ANALOG_POSITION_MODE)
 
             # Enable motors
-            await clients.client_right.write_register(address=config.IEG_MODE, value=2, slave=config.SLAVE_ID)
-            await clients.client_left.write_register(address=config.IEG_MODE, value=2, slave=config.SLAVE_ID)
+            await clients.set_ieg_mode(2)
         
+
     except Exception as e:
         logger.error(f"Initialization failed: {e}")
 

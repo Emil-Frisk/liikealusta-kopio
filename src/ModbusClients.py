@@ -1,6 +1,6 @@
 
 from pymodbus.client import AsyncModbusTcpClient
-from typing import Optional
+from typing import List, Optional, Tuple, Union
 from utils import is_nth_bit_on
 import asyncio
 from pymodbus.exceptions import ConnectionException, ModbusIOException
@@ -393,6 +393,595 @@ class ModbusClients:
 
         except Exception as e:
             self.logger.error(f"Unexpected error while homing motors: {e}")
+            return False
+    
+    async def set_analog_pos_max(self, decimal: int, whole: int) -> bool:
+        """
+        Sets the analog position maximum for both motors.
+        Args:
+            decimal (int): The decimal part of the position limit.
+            whole (int): The whole number part of the position limit.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            values = [decimal, whole]
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_registers(
+                        address=self.config.ANALOG_POSITION_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog position max on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog position max on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_registers(
+                        address=self.config.ANALOG_POSITION_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog position max on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog position max on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog position max on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog position max on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog position max: {str(e)}")
+            return False
+    
+    async def set_analog_pos_min(self, decimal: int, whole: int) -> bool:
+        """
+        Sets the analog position minium for both motors.
+        Args:
+            decimal (int): The decimal part of the position limit.
+            whole (int): The whole number part of the position limit.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            values = [decimal, whole]
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_registers(
+                        address=self.config.ANALOG_POSITION_MINIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog position min on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog position min on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_registers(
+                        address=self.config.ANALOG_POSITION_MINIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog position min on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog position min on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog position min on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog position min on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog position min: {str(e)}")
+            return False
+    
+    async def set_analog_vel_max(self, decimal: int, whole: int) -> bool:
+        """
+        Sets the analog velocity maxium for both motors.
+        Args:
+            decimal (int): The decimal part of the velocity limit.
+            whole (int): The whole number part of the velocity limit.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            values = [decimal, whole]
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_registers(
+                        address=self.config.ANALOG_VEL_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog velocity max on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog velocity max on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_registers(
+                        address=self.config.ANALOG_VEL_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog velocity max on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog velocity max on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog velocity max on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog velocity max on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog velocity max: {str(e)}")
+            return False
+    
+    async def set_analog_acc_max(self, decimal: int, whole: int) -> bool:
+        """
+        Sets the analog acceleration maxium for both motors.
+        Args:
+            decimal (int): The decimal part of the acceleration limit.
+            whole (int): The whole number part of the acceleration limit.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            values = [decimal, whole]
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_registers(
+                        address=self.config.ANALOG_ACCELERATION_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog acceleration max on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog acceleration max on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_registers(
+                        address=self.config.ANALOG_ACCELERATION_MAXIMUM,
+                        values=values,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog acceleration max on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog acceleration max on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog acceleration max on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog acceleration max on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog acceleration max: {str(e)}")
+            return False
+    
+    async def set_analog_input_channel(self, value: int) -> bool:
+        """
+        Sets the analog input channel for both motors.
+        Args:
+            value (int): The value for the analog input channel.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_register(
+                        address=self.config.ANALOG_INPUT_CHANNEL,
+                        value=value,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog input channel on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog input channel on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_register(
+                        address=self.config.ANALOG_INPUT_CHANNEL,
+                        value=value,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog input channel on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog input channel on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog input channel on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog input channel on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog input channel: {str(e)}")
+            return False
+        
+    async def get_current_revs(self) ->  Union[Tuple[List[int], List[int]], bool]:
+        """
+        Gets the current REVS for both motors
+        Returns:
+             A tuple of (response_left, response_right), where each response is a list of two integers:
+            - response_left: [decimal_part, whole_part] for the left motor
+            - response_right: [decimal_part, whole_part] for the right motor
+            Returns False if the operation is not successful.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.read_holding_registers(
+                        address=self.config.PFEEDBACK_POSITION,
+                        count=2,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to read current REVS on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully read current REVS on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.read_holding_registers(
+                        address=self.config.PFEEDBACK_POSITION,
+                        count=2,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to read current REVS on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully read current REVS on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to read current REVS on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully read current REVS on both motors")
+            return (response_left, response_right)
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while reading motor REVS: {str(e)}")
+            return False
+    
+    async def set_analog_modbus_cntrl(self, values: Tuple[int, int]) -> bool:
+        """
+        Sets the analog input Modbus control value for both motors,
+        where 0 makes the motor go to the analog_pos_min position
+        and 10,000 makes the motor go to the analog_pos_max position.
+        Args:
+            values: A tuple of (value_left, value_right) where each value is an integer
+                    between 0 and 10,000 representing the control value for the left and right motors.
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+            value_left, value_right = values
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_register(
+                        address=self.config.ANALOG_MODBUS_CNTRL,
+                        value=value_left,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set analog modbuscntrl value on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set analog modbuscntrl value on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_register(
+                        address=self.config.ANALOG_MODBUS_CNTRL,
+                        value=value_right,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set analog modbuscntrl value on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set analog modbuscntrl value on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set analog modbuscntrl value on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set analog modbuscntrl value on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting analog modbuscntrl value: {str(e)}")
+            return False
+    
+    async def set_host_command_mode(self, value: int) -> bool:
+        """
+        Sets both of the motors host command mode to value
+        Args:
+            value: 
+            OPMODE MAP
+                0: disabled
+                1: digital inputs
+                2: analog position
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_register(
+                        address=self.config.COMMAND_MODE,
+                        value=value,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set host command mode value on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set host command mode value on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_register(
+                        address=self.config.COMMAND_MODE,
+                        value=value,
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set host command mode value on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set host command mode value on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set host command mode value on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set host command mode value on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting host command mode value: {str(e)}")
+            return False
+        
+    async def set_ieg_mode(self, value: int) -> bool:
+        """
+        Sets IEG_MODE bits
+        !!! IMPORTANT NOTE !!! 
+        DO NOT EVER ACTIVATE ALL BITS IT WILL DEFINE NEW HOME AND THE WHOLE SYSTEM
+        WILL BRAKE, IT WILL ALSO DISABLE THE MOTORS BREAKS MAKE SURE TO USE
+        BIT MAKS DEFINED IN THE UTILS (IEG_MODE_bitmask_default) and (IEG_MODE_bitmask_alternative)
+        THESE BITMASKS WILL MAKE SURE DANGEROUS BITS WILL NEVER BE ON EVEN IF YOU USE MAX UINT32 VALUE
+        Args:
+            value: 
+            bit map
+                0: enable momentary
+                1: enable maintained
+                7: alt mode
+                15: reset fault
+        Returns:
+            bool: True if successful for both motors, False otherwise.
+        """
+        try:
+            attempt_left = 0
+            attempt_right = 0
+            success_left = False
+            success_right = False
+            max_retries = 3  # 3 retries for each motor
+
+            while max_retries > attempt_left and max_retries > attempt_right:
+                # Write to left motor if not yet successful
+                if not success_left:
+                    response_left = await self.client_left.write_register(
+                        address=self.config.IEG_MODE,
+                        value=IEG_MODE_bitmask_default(value),
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_left.isError():
+                        attempt_left += 1
+                        self.logger.error(f"Failed to set ieg mode value on left motor. Attempt {attempt_left}/{max_retries}")
+                    else:
+                        success_left = True
+                        self.logger.info("Successfully set ieg mode value on left motor")
+
+                # Write to right motor if not yet successful
+                if not success_right:
+                    response_right = await self.client_right.write_register(
+                        address=self.config.IEG_MODE,
+                        value=IEG_MODE_bitmask_default(value),
+                        slave=self.config.SLAVE_ID
+                    )
+                    if response_right.isError():
+                        attempt_right += 1
+                        self.logger.error(f"Failed to set ieg mode value on right motor. Attempt {attempt_right}/{max_retries}")
+                    else:
+                        success_right = True
+                        self.logger.info("Successfully set ieg mode value on right motor")
+
+                # Break if both are successful
+                if success_left and success_right:
+                    break
+
+                # Delay between retries
+                await asyncio.sleep(self.retry_delay)
+
+            if not success_left or not success_right:
+                self.logger.error(f"Failed to set ieg mode mode value on both motors. Left: {success_left}, Right: {success_right}")
+                return False
+
+            self.logger.info("Successfully set ieg mode mode value on both motors")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Unexpected error while setting ieg mode value: {str(e)}")
             return False
 
 

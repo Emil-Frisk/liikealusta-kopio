@@ -4,12 +4,14 @@ import os
 import subprocess
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QSpinBox
+from setup_logging import setup_logging
 
 CONFIG_FILE = "config.json"
 
 class ServerStartupGUI(QWidget):
     def __init__(self):
         super().__init__()
+        self.logger = setup_logging("startup", "startup.log")
         self.project_root = ""
         self.setWindowTitle("Server Startup")
         self.setGeometry(100, 100, 400, 250)
@@ -104,8 +106,20 @@ class ServerStartupGUI(QWidget):
             venv_python = self.get_venv_python()
             server_path = self.project_root / "src" / "palvelin.py"
 
-            subprocess.Popen([venv_python, server_path, "--server_left", ip1, "--server_right", ip2, "--freq", str(freq)])
+            cmd = f'start /B "" "{venv_python}" "{server_path}" --server_left "{ip1}" --server_right "{ip2}" --freq "{freq}"'
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+
+            self.logger.info(f"Server launched with PID: {process.pid}")
+
             QMessageBox.information(self, "Success", "Server started successfully!")
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to start server: {str(e)}")
 

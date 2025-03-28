@@ -77,6 +77,14 @@ class ModbusClients:
                 client.ctx.next_tid = self.config.START_TID
                 self.logger.debug(f"Reset TID for client")
 
+    async def reset_motors(self):
+        """ 
+        Removes all temporary settings from both motors
+        and goes back to default ones
+        """
+        await self.client_left.write_register(address=4001, value=1)
+        await self.client_right.write_register(address=4001, value=1)
+
     async def get_recent_fault(self) -> tuple[Optional[int], Optional[int]]:
         """
         Read fault registers from both clients.

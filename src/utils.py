@@ -147,7 +147,7 @@ def convert_vel_rpm_revs(rpm):
         8.24 format
         """
         if rpm < 0 or rpm > 180:
-                return None
+                rpm = 180
         
         revs = rpm/60.0
         decimal, whole = math.modf(revs)
@@ -162,7 +162,7 @@ def convert_acc_rpm_revs(rpm):
         12.20 format
         """
         if rpm < 0 or rpm > 180:
-                return None
+                rpm = 180
         
         revs = rpm/60.0
         decimal, whole = math.modf(revs)

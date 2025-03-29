@@ -139,18 +139,12 @@ def combine_12_4bit(whole, decimal):
        sixteen_bit = sixteen_bit & 0xFFFF
 
        return sixteen_bit
-       
-
-
-### convert rmp into Revs registers
-
-### 70 rpm
-a = 70
 
 def convert_vel_rpm_revs(rpm):
         """
         Takes in velocity rpm and converts it into revs 
         return tuple with higher register value first
+        8.24 format
         """
         if rpm < 0 or rpm > 180:
                 return None
@@ -165,6 +159,7 @@ def convert_acc_rpm_revs(rpm):
         """
         Takes in acceleration rpm and converts it into revs 
         return tuple with higher register value first
+        12.20 format
         """
         if rpm < 0 or rpm > 180:
                 return None

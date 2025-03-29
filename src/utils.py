@@ -1,8 +1,11 @@
+import math
+import numpy as np
+
 FAULT_RESET_BIT = 15
 ENABLE_MAINTAINED_BIT = 1
 ALTERNATE_MODE_BIT = 7
-UVEL32_RESOLUTION = 0.000000059604644775390625
-UACC32_RESOLUTION = 0.00000095367431640625
+UVEL32_RESOLUTION = 1 / (2**24 - 1)
+UACC32_RESOLUTION = 1 / (2**20 - 1)
 
 def is_nth_bit_on(n, number):
             mask = 1 << n
@@ -116,21 +119,59 @@ def combine_to_20bit(sixteen_bit, four_bit):
     return result
 
 def combine_8_8bit(whole, decimal):
-       # 16 bit limit
-       whole << 8
+       whole = whole & 0xFF
+       decimal = decimal & 0xFF
+
+       whole = whole << 8
+
        sixteen_bit = whole | decimal
        sixteen_bit = sixteen_bit & 0xFFFF
+       
+       return sixteen_bit
+
+def combine_12_4bit(whole, decimal):
+       whole = whole & 0xFFF
+       decimal = decimal & 0xF
+
+       whole = whole << 4
+
+       sixteen_bit = whole | decimal
+       sixteen_bit = sixteen_bit & 0xFFFF
+
        return sixteen_bit
        
 
 
-sixteen_bit, eight_bit = split_24bit_to_components(0.9)
+### convert rmp into Revs registers
 
-print(f"sixteen-bit: {sixteen_bit}\neight-bit: {eight_bit}")
-whole_number_bit = 1 << 8
+### 70 rpm
+a = 70
 
-result = combine_8_8bit(1, eight_bit)
+def convert_vel_rpm_revs(rpm):
+        """
+        Takes in velocity rpm and converts it into revs 
+        return tuple with higher register value first
+        """
+        if rpm < 0 or rpm > 180:
+                return None
+        
+        revs = rpm/60.0
+        decimal, whole = math.modf(revs)
+        sixteen_b, eight_b = split_24bit_to_components(decimal)
+        whole_num_register_bits = combine_8_8bit(int(whole), eight_b)
+        return (whole_num_register_bits, sixteen_b)
 
-print(f"result(bin) : {bin(result)}")
-print(f"result : {result}")
+def convert_acc_rpm_revs(rpm):
+        """
+        Takes in acceleration rpm and converts it into revs 
+        return tuple with higher register value first
+        """
+        if rpm < 0 or rpm > 180:
+                return None
+        
+        revs = rpm/60.0
+        decimal, whole = math.modf(revs)
+        sixteen_b, four_b = split_20bit_to_components(decimal)
+        whole_num_register_bits = combine_12_4bit(int(whole), four_b)
+        return (whole_num_register_bits, sixteen_b)
 

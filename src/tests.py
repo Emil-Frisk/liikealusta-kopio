@@ -123,7 +123,7 @@ class TestBitFunctions(unittest.TestCase):
         self.assertEqual(combined, 2194688)
 
     def test_combine_12_4bit(self):
-        # Test case 1: whole_num = 70, four_bit = 0 (from your screenshot)
+        # Test case 1: whole_num = 70, four_bit = 0
         whole_num, four_bit = 70, 0
         combined = combine_12_4bit(whole_num, four_bit)
         self.assertEqual(combined, 1120)  # 70 << 4 = 1120
@@ -148,6 +148,73 @@ class TestBitFunctions(unittest.TestCase):
         whole_num, eight_bit = 255, 255
         combined = combine_8_8bit(whole_num, eight_bit)
         self.assertEqual(combined, 65535)
-    
+
+    def test_convert_vel_rpm_revs(self):
+        # Test case 1: 
+        expected_result = (256, 0)
+        result = convert_vel_rpm_revs(60)
+        self.assertTupleEqual(expected_result, result)
+        self.assertEqual(result[0], 256)  
+        self.assertEqual(result[1], 0)    
+
+        # Test case 2: 
+        expected_result = (512, 0)
+        result = convert_vel_rpm_revs(120)
+        self.assertTupleEqual(expected_result, result)
+        self.assertEqual(result[0], 512) 
+        self.assertEqual(result[1], 0)
+
+        # Test case 3: 
+        expected_result = (106, 43690)
+        result = convert_vel_rpm_revs(25)
+        self.assertTupleEqual(expected_result, result)
+        self.assertEqual(result[0], 106) 
+        self.assertEqual(result[1], 43690)
+
+        # Test case 4: 
+        expected_result = (354, 8737)
+        result = convert_vel_rpm_revs(83)
+        self.assertTupleEqual(expected_result, result)
+        self.assertEqual(result[0], 354) 
+        self.assertEqual(result[1], 8737)        
+
+        # Test case 5: 
+        expected_result = (768, 0)
+        result = convert_vel_rpm_revs(1000)
+        self.assertEqual(result[0], 768) 
+        self.assertEqual(result[1], 0)
+
+
+    def test_convert_acc_rpm_revs(self):
+        # Test case 1: 
+        expected_result = (16, 0)
+        result = convert_acc_rpm_revs(60)
+        self.assertEqual(result[0], 16) 
+        self.assertEqual(result[1], 0)
+
+        # Test case 2: 
+        expected_result = (32, 0)
+        result = convert_acc_rpm_revs(120)
+        self.assertEqual(result[0], 32) 
+        self.assertEqual(result[1], 0)
+
+        # Test case 3: 
+        expected_result = (7, 65535)
+        result = convert_acc_rpm_revs(30)
+        self.assertEqual(result[0], 7) 
+        self.assertEqual(result[1], 65535)
+
+        # Test case 4: 
+        expected_result = (41, 21844)
+        result = convert_acc_rpm_revs(155)
+        self.assertEqual(result[0], 41) 
+        self.assertEqual(result[1], 21844)
+
+        # # Test case 5: 
+        # expected_result = (48, 0)
+        # result = convert_acc_rpm_revs(1000)
+        # self.assertEqual(result[0], 48) 
+        # self.assertEqual(result[1], 0)
+
 if __name__ == '__main__':
     unittest.main()

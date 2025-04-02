@@ -1,3 +1,6 @@
+# Tietoja projektista
+- rakennettu python versiolla: Python 3.10.11  
+
 # Liikealustan Rajapinta Ryhmä 14 
 Projektin tekijät:
 

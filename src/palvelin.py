@@ -19,6 +19,8 @@ def cleanup(app):
     if app.clients is not None:
         app.clients.cleanup()
 
+    sys.exit(1)
+
 async def monitor_fault_poller(app):
     """
     Heathbeat monitor that makes sure fault poller
@@ -41,8 +43,12 @@ async def get_modbuscntrl_val(clients, config):
         the percentile where they are in the current max_rev - min_rev range.
         After that we multiply it with the maxium modbuscntrl val (10k)
         """
-        pfeedback_client_left, pfeedback_client_right = await clients.get_current_revs()
-        
+        result = await clients.get_current_revs()
+        if result is False:
+            cleanup()
+
+        pfeedback_client_left, pfeedback_client_right = result
+
         revs_left = convert_to_revs(pfeedback_client_left)
         revs_right = convert_to_revs(pfeedback_client_right)
 
@@ -93,37 +99,48 @@ async def init(app):
         
         await clients.set_host_command_mode(0)
         homed = await clients.home()
-        if homed: ## Prepare motor parameters for operation
+        if homed: 
+            ## Prepare motor parameters for operation
+            ### If any of them are unsuccesful -> cleanup and shutdown
+
             ### MAX POSITION LIMITS FOR BOTH MOTORS | 147 mm
-            await clients.set_analog_pos_max(61406, 28)
+            if not await clients.set_analog_pos_max(61406, 28):
+                cleanup()
 
             ### MIN POSITION LIMITS FOR BOTH MOTORS || 2 mm
-            await clients.set_analog_pos_min(25801, 0)
+            if not await clients.set_analog_pos_min(25801, 0):
+                cleanup()
 
             ### Velocity whole number is in 8.8 where decimal is in little endian format,
             ### meaning smaller bits come first, so 1 rev would be 2^8
-            await clients.set_analog_vel_max(0, 768)
+            if not await clients.set_analog_vel_max(0, 768):
+                cleanup()
 
             ### UACC32 whole number split in 12.4 format
-            await clients.set_analog_acc_max(0, 48)
+            if not await clients.set_analog_acc_max(0, 48):
+                cleanup()
 
             ## Analog input channel set to use modbusctrl (2)
-            await clients.set_analog_input_channel(2)
+            if not await clients.set_analog_input_channel(2):
+                cleanup()
 
             (position_client_left, position_client_right) = await get_modbuscntrl_val(clients, config)
 
             # modbus cntrl 0-10k
-            await clients.set_analog_modbus_cntrl((position_client_left, position_client_right))
+            if not await clients.set_analog_modbus_cntrl((position_client_left, position_client_right)):
+                cleanup()
 
             # TODO Ipeak pitää varmistaa vielä onhan 128 arvo = 1 Ampeeri 
             # await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
             # await clients.client_left.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
 
             # # Finally - Ready for operation
-            await clients.set_host_command_mode(config.ANALOG_POSITION_MODE)
+            if not await clients.set_host_command_mode(config.ANALOG_POSITION_MODE):
+                cleanup()
 
             # Enable motors
-            await clients.set_ieg_mode(2)
+            if not await clients.set_ieg_mode(2):
+                cleanup()
         
 
     except Exception as e:

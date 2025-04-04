@@ -57,9 +57,9 @@ class ModbusClients:
             if left_connected and right_connected:
                 self.logger.info("Both clients connected succesfully")
 
-                if "fault_poller.py" in self.config.MODULE_NAME:
-                    self.client_left.ctx.next_tid = self.config.START_TID
-                    self.client_right.ctx.next_tid = self.config.START_TID
+                # if "fault_poller.py" in self.config.MODULE_NAME:
+                #     self.client_left.ctx.next_tid = self.config.START_TID
+                #     self.client_right.ctx.next_tid = self.config.START_TID
 
                 return True
             else: 
@@ -71,11 +71,11 @@ class ModbusClients:
             self.logger.error(f"Error connecting to clients {str(e)}")
             return None
 
-    def check_and_reset_tids(self):
-        for client in [self.client_left, self.client_right]:
-            if client and client.ctx.next_tid >= self.config.LAST_TID:
-                client.ctx.next_tid = self.config.START_TID
-                self.logger.debug(f"Reset TID for client")
+    # def check_and_reset_tids(self):
+    #     for client in [self.client_left, self.client_right]:
+    #         if client and client.ctx.next_tid >= self.config.LAST_TID:
+    #             client.ctx.next_tid = self.config.START_TID
+    #             self.logger.debug(f"Reset TID for client")
 
     async def reset_motors(self):
         """ 
@@ -372,16 +372,16 @@ class ModbusClients:
                                         slave=self.config.SLAVE_ID)
                 
                 if OEG_STATUS_right.isError() or OEG_STATUS_left.isError():
-                    self.logger.error(f"Unexpected error while reading OEG_STATUS registers: {e}")
+                    self.logger.error(f"Unexpected error while reading OEG_STATUS registers: ")
                     await asyncio.sleep(0.2)
                     continue
                 
-                ishomed_right = is_nth_bit_on(1, OEG_STATUS_right[0])
-                ishomed_left = is_nth_bit_on(1, OEG_STATUS_left[0])
+                ishomed_right = is_nth_bit_on(1, OEG_STATUS_right.registers[0])
+                ishomed_left = is_nth_bit_on(1, OEG_STATUS_left.registers[0])
 
                 # Success
                 if ishomed_right and ishomed_left:
-                    self.logger.info(f"Both motors homes successfully: {e}")
+                    self.logger.info(f"Both motors homes successfully:")
                     return True
                 
                 await asyncio.sleep(0.2)

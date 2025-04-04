@@ -1,11 +1,14 @@
 import math
-import numpy as np
 
 FAULT_RESET_BIT = 15
 ENABLE_MAINTAINED_BIT = 1
 ALTERNATE_MODE_BIT = 7
+CONTINIOUS_CURRENT_BIT = 1
+BOARD_TEMPERATURE_BIT = 7
+ACTUATOR_TEMPERATURE = 8
 UVEL32_RESOLUTION = 1 / (2**24 - 1)
 UACC32_RESOLUTION = 1 / (2**20 - 1)
+
 
 def is_nth_bit_on(n, number):
             mask = 1 << n
@@ -16,6 +19,17 @@ def IEG_MODE_bitmask_default(number):
         mask = (1 << FAULT_RESET_BIT) | (1 << ENABLE_MAINTAINED_BIT)
         number = number & 0xFFFF
         return number & mask
+
+# Only allows the needed bits
+# def is_fault_critical(number):
+#         mask = (1 << CONTINIOUS_CURRENT_BIT) | (1 << BOARD_TEMPERATURE_BIT) | (1 << ACTUATOR_TEMPERATURE)
+#         number = number & 0xFFFF
+#         return (number & mask) != 0
+
+def is_fault_critical(number):
+        mask = (1 << BOARD_TEMPERATURE_BIT) | (1 << ACTUATOR_TEMPERATURE)
+        number = number & 0xFFFF
+        return (number & mask) != 0
 
 def IEG_MODE_bitmask_alternative(number):
         mask = (1 << FAULT_RESET_BIT) | (1 << ALTERNATE_MODE_BIT) |(1 << ENABLE_MAINTAINED_BIT) 
@@ -146,8 +160,8 @@ def convert_vel_rpm_revs(rpm):
         return tuple with higher register value first
         8.24 format
         """
-        if rpm < 0 or rpm > 180:
-                rpm = 180
+        if rpm < 0 or rpm > 120:
+                rpm = 120
         
         revs = rpm/60.0
         decimal, whole = math.modf(revs)
@@ -161,8 +175,8 @@ def convert_acc_rpm_revs(rpm):
         return tuple with higher register value first
         12.20 format
         """
-        if rpm < 0 or rpm > 180:
-                rpm = 180
+        if rpm < 0 or rpm > 120:
+                rpm = 120
         
         revs = rpm/60.0
         decimal, whole = math.modf(revs)

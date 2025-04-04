@@ -1,6 +1,9 @@
-high_decimal = 3 << 8
-lower_decimal = 15
-result = high_decimal | lower_decimal
+from utils import convert_acc_rpm_revs, convert_vel_rpm_revs
 
-a = 20
-# print(moi)
+val1 = 1 << 8
+val2 = 1 << 4
+
+temp2 = convert_vel_rpm_revs(60)
+temp = convert_acc_rpm_revs(60)
+
+a = 10

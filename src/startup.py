@@ -35,13 +35,13 @@ class ServerStartupGUI(QWidget):
         self.layout.addWidget(self.freq_input)
 
         # Speed Field
-        self.layout.addWidget(QLabel("Speed (mm/sec):"))
+        self.layout.addWidget(QLabel("Velocity (RPM):"))
         self.speed_input = QSpinBox()
         self.speed_input.setRange(1, 500)  # Adjust range as needed
         self.layout.addWidget(self.speed_input)
 
         # Acceleration Field
-        self.layout.addWidget(QLabel("Acceleration (mm/s^2):"))
+        self.layout.addWidget(QLabel("Acceleration (RPM):"))
         self.accel_input = QSpinBox()
         self.accel_input.setRange(1, 1000)  # Adjust range as needed
         self.layout.addWidget(self.accel_input)
@@ -87,14 +87,14 @@ class ServerStartupGUI(QWidget):
     def get_project_root(self):
         current_dir = Path(__file__).resolve().parent
         for parent in current_dir.parents:
-            if (parent / "venv").exists():
+            if (parent / ".venv").exists():
                 return parent
-        raise FileNotFoundError("Could not find project root (containing 'venv' folder)")
+        raise FileNotFoundError("Could not find project root (containing '.venv' folder)")
 
     def get_venv_python(self):
         project_root = self.get_project_root()
         self.project_root = project_root
-        venv_python = project_root / "venv" / "Scripts" / "python.exe"
+        venv_python = project_root / ".venv" / "Scripts" / "python.exe"
         if not venv_python.exists():
             raise FileNotFoundError(f"Python executable not found at: {venv_python}")
         return str(venv_python)
@@ -115,7 +115,8 @@ class ServerStartupGUI(QWidget):
         try:
             venv_python = self.get_venv_python()
             server_path = self.project_root / "src" / "palvelin.py"
-            cmd = f'start /B "" "{venv_python}" "{server_path}" --server_left "{ip1}" --server_right "{ip2}" --freq "{freq}" --speed "{speed}" --accel "{accel}"'
+            #cmd = f'start /B "" "{venv_python}" "{server_path}" --server_left "{ip1}" --server_right "{ip2}" --freq "{freq}" --speed "{speed}" --accel "{accel}"'
+            cmd = f'"{venv_python}" "{server_path}" --server_left "{ip1}" --server_right "{ip2}" --acc "{accel}" --vel "{speed}"'
             self.process = subprocess.Popen(
                 cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE,
                 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
@@ -128,8 +129,8 @@ class ServerStartupGUI(QWidget):
 
     def shutdown_server(self):
         try:
-            response = subprocess.run(["curl", "-X", "POST", "http://localhost:5000/shutdown"], capture_output=True, text=True)
-            if response.returncode == 0:
+            response = subprocess.run(["curl", "-X", "GET", "http://localhost:5001/shutdown"], capture_output=True, text=True)
+            if response.returncode == 56:
                 QMessageBox.information(self, "Success", "Server shutdown successfully!")
                 self.shutdown_button.setEnabled(False)
             else:

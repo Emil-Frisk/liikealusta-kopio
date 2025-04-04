@@ -8,10 +8,34 @@ from launch_params import handle_launch_params
 from module_manager import ModuleManager
 import subprocess
 from time import sleep 
-from utils import is_nth_bit_on, IEG_MODE_bitmask_enable, IEG_MODE_bitmask_alternative_real
+from utils import is_nth_bit_on, IEG_MODE_bitmask_enable, convert_acc_rpm_revs, convert_vel_rpm_revs
 import math
 import sys
 import os
+import time
+
+async def shutdown_test(app):    
+    """Gracefully shuts down the server."""
+    app.logger.info("Shutdown request received. Cleaning up...")
+    
+    await app.clients.reset_motors()
+
+    # Stop fault poller task if running
+    if hasattr(app, 'monitor_task') and app.monitor_task:
+        app.monitor_task.cancel()
+        await asyncio.sleep(1)  # Allow task to cancel properly
+
+    # Cleanup Modbus clients
+    if hasattr(app, 'clients') and app.clients:
+        app.clients.cleanup()
+
+    # Cleanup modules
+    if hasattr(app, 'module_manager') and app.module_manager:
+        app.module_manager.cleanup_all()
+
+    app.logger.info("Cleanup complete. Shutting down server.")
+    os._exit(0)
+
 
 def cleanup(app):
     app.logger.info("cleanup function executed!")
@@ -78,8 +102,8 @@ async def init(app):
         config = handle_launch_params()
         clients = ModbusClients(config=config, logger=logger)
 
-        fault_poller_pid = module_manager.launch_module("fault_poller")
-        app.monitor_task = asyncio.create_task(monitor_fault_poller(app))
+        # fault_poller_pid = module_manager.launch_module("fault_poller")
+        # app.monitor_task = asyncio.create_task(monitor_fault_poller(app))
 
         # Connect to both drivers
         connected = await clients.connect() 
@@ -92,12 +116,14 @@ async def init(app):
         
         app.module_manager = module_manager
         app.is_process_done = True
-        app.fault_poller_pid = fault_poller_pid
+        # app.fault_poller_pid = fault_poller_pid
         app.clients = clients
 
         atexit.register(lambda: cleanup(app))
         
         await clients.set_host_command_mode(0)
+        ### TODO - posita myöhemmin kun fault pollerin toimimaan
+        await clients.set_ieg_mode(65535)
         homed = await clients.home()
         if homed: 
             ## Prepare motor parameters for operation
@@ -113,11 +139,13 @@ async def init(app):
 
             ### Velocity whole number is in 8.8 where decimal is in little endian format,
             ### meaning smaller bits come first, so 1 rev would be 2^8
-            if not await clients.set_analog_vel_max(0, 768):
+            (velocity_whole, velocity_decimal) = convert_vel_rpm_revs(config.VEL)
+            if not await clients.set_analog_vel_max(velocity_decimal, velocity_whole):
                 cleanup()
 
             ### UACC32 whole number split in 12.4 format
-            if not await clients.set_analog_acc_max(0, 48):
+            (acc_whole, acc_decimal) =convert_acc_rpm_revs(config.ACC)
+            if not await clients.set_analog_acc_max(acc_decimal, acc_whole):
                 cleanup()
 
             ## Analog input channel set to use modbusctrl (2)
@@ -131,8 +159,8 @@ async def init(app):
                 cleanup()
 
             # TODO Ipeak pitää varmistaa vielä onhan 128 arvo = 1 Ampeeri 
-            # await clients.client_right.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
-            # await clients.client_left.write_register(address=config.IPEAK,value=128,slave=config.SLAVE_ID)
+            # await clients.client_right.write_register(address=config.IPEAK,value=640,slave=config.SLAVE_ID)
+            # await clients.client_left.write_register(address=config.IPEAK,value=640,slave=config.SLAVE_ID)
 
             # # Finally - Ready for operation
             if not await clients.set_host_command_mode(config.ANALOG_POSITION_MODE):
@@ -146,28 +174,6 @@ async def init(app):
     except Exception as e:
         logger.error(f"Initialization failed: {e}")
 
-async def shutdown(app):    
-    """Gracefully shuts down the server."""
-    app.logger.info("Shutdown request received. Cleaning up...")
-    
-    await app.clients.reset_motors()
-
-    # Stop fault poller task if running
-    if hasattr(app, 'monitor_task') and app.monitor_task:
-        app.monitor_task.cancel()
-        await asyncio.sleep(1)  # Allow task to cancel properly
-
-    # Cleanup Modbus clients
-    if hasattr(app, 'clients') and app.clients:
-        app.clients.cleanup()
-
-    # Cleanup modules
-    if hasattr(app, 'module_manager') and app.module_manager:
-        app.module_manager.cleanup_all()
-
-    app.logger.info("Cleanup complete. Shutting down server.")
-    os._exit(0)  # Forces the process to exit  
-
 
 async def create_app():
     app = Quart(__name__)
@@ -176,63 +182,70 @@ async def create_app():
     @app.route("/write", methods=['get'])
     async def write():
         pitch = request.args.get('pitch')
-        roll = request.args.get('roll')   
-        MODBUSCTRL_MAX = app.clients.app_config.MODBUSCTRL_MAX
+        roll = request.args.get('roll') 
+        asd = request.args.get('asd')   
+        MODBUSCTRL_MAX = app.app_config.MODBUSCTRL_MAX
+
+        if (asd == "q"):
+            a = 10
+            await app.clients.client_right.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=MODBUSCTRL_MAX, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=MODBUSCTRL_MAX, slave=app.app_config.SLAVE_ID)
+
+
 
         if (pitch == "+"): # forward
-            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.app_config)
+            (position_client_left, position_client_right) = await get_modbuscntrl_val(app.clients, app.app_config)
 
-            position_client_left = math.floor(position_client_left + (MODBUSCTRL_MAX * 0.3)) 
-            position_client_right = math.floor(position_client_right + (MODBUSCTRL_MAX* 0.3)) 
+            position_client_left = math.floor(position_client_left + (MODBUSCTRL_MAX * 0.15)) 
+            position_client_right = math.floor(position_client_right + (MODBUSCTRL_MAX* 0.15)) 
 
             position_client_right = min(MODBUSCTRL_MAX, position_client_right)
             position_client_left = min(MODBUSCTRL_MAX, position_client_left)
 
-            await app.clients.client_right.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.app_config.SLAVE_ID)
-            await app.clients.client_left.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_right.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_right, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_left, slave=app.app_config.SLAVE_ID)
 
         elif (pitch == "-"): #backward
-            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.app_config)
+            (position_client_left, position_client_right) = await get_modbuscntrl_val(app.clients, app.app_config)
 
-            position_client_left = math.floor(position_client_left - (MODBUSCTRL_MAX* 0.3)) 
-            position_client_right = math.floor(position_client_right - (MODBUSCTRL_MAX* 0.3)) 
+            position_client_left = math.floor(position_client_left - (MODBUSCTRL_MAX* 0.15)) 
+            position_client_right = math.floor(position_client_right - (MODBUSCTRL_MAX* 0.15)) 
 
             position_client_right = max(0, position_client_right)
             position_client_left = max(0, position_client_left)
 
-            await app.clients.client_right.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.app_config.SLAVE_ID)
-            await app.clients.client_left.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_right.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_right, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_left, slave=app.app_config.SLAVE_ID)
         elif (roll == "-"):# left
-            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.app_config)
-            position_client_left = math.floor(position_client_left - (MODBUSCTRL_MAX* 0.18)) 
-            position_client_right = math.floor(position_client_right + (MODBUSCTRL_MAX* 0.18)) 
+            (position_client_left, position_client_right) = await get_modbuscntrl_val(app.clients, app.app_config)
+            position_client_left = math.floor(position_client_left - (MODBUSCTRL_MAX* 0.08)) 
+            position_client_right = math.floor(position_client_right + (MODBUSCTRL_MAX* 0.08)) 
 
             position_client_right = min(MODBUSCTRL_MAX, position_client_right)
             position_client_left = max(0, position_client_left)
 
-            await app.clients.client_right.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.app_config.SLAVE_ID)
-            await app.clients.client_left.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_right.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_right, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_left, slave=app.app_config.SLAVE_ID)
         elif (roll == "+"):
-            (position_client_right, position_client_left) = await get_modbuscntrl_val(app.clients, app.app_config)
-            position_client_left = math.floor(position_client_left + (MODBUSCTRL_MAX* 0.18)) 
-            position_client_right = math.floor(position_client_right - (MODBUSCTRL_MAX* 0.18)) 
+            (position_client_left, position_client_right) = await get_modbuscntrl_val(app.clients, app.app_config)
+            position_client_left = math.floor(position_client_left + (MODBUSCTRL_MAX* 0.10)) 
+            position_client_right = math.floor(position_client_right - (MODBUSCTRL_MAX* 0.10)) 
 
             position_client_left = min(MODBUSCTRL_MAX, position_client_left)
             position_client_right = max(0, position_client_right)
 
-            await app.clients.client_right.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_right, slave=app.app_config.SLAVE_ID)
-            await app.clients.client_left.write_register(address=app.app_config.MODBUS_ANALOG_POSITION, value=position_client_left, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_right.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_right, slave=app.app_config.SLAVE_ID)
+            await app.clients.client_left.write_register(address=app.app_config.ANALOG_MODBUS_CNTRL, value=position_client_left, slave=app.app_config.SLAVE_ID)
         else:
             app.logger.error("Wrong parameter use direction (l | r)")
     
-    @app.route('/shutdown', methods=['GET'])
-    async def shutdown_server():
+    @app.route('/shutdown', methods=['get'])
+    async def shutdown():
         """Shuts down the server when called."""
         app.logger.info("Shutdown request received.")
-        await shutdown()
-        return {"message": "Server is shutting down..."}, 200
+        await shutdown_test(app)
 
-    @app.route('/stop', methods=['GET'])
+    @app.route('/stop', methods=['get'])
     async def stop_motors():
         try:
             success = await app.clients.stop()
@@ -240,6 +253,10 @@ async def create_app():
                 pass # do something crazy :O
         except Exception as e:
             app.logger.error("Failed to stop motors?") # Mitäs sitten :D
+
+    @app.route('/asd')
+    async def asd():
+        print("terve")
 
     return app
 if __name__ == '__main__':

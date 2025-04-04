@@ -9,6 +9,8 @@ def handle_launch_params():
     parser.add_argument("--port", type=int, help="port number")
     parser.add_argument("--server_left", type=str, help="left side motor ip")
     parser.add_argument("--server_right", type=str, help="right side motor ip")
+    parser.add_argument("--vel", type=int, help="max rpm velocity")
+    parser.add_argument("--acc", type=int, help="max rpm acceleration")
     parser.add_argument("--freq", type=str, help="Expected motor command frequency")
     parser.add_argument("--slaveid", type=int, help="drivers slave id")
     parser.add_argument("--polling_time_interval", type=int, help="polling time interval")
@@ -29,8 +31,12 @@ def handle_launch_params():
     args = parser.parse_args()
     if (args.port):
         config.SERVER_PORT = args.port
+    if (args.acc):
+        config.ACC = args.acc
     if (args.server_left):
         config.SERVER_IP_LEFT = args.server_left
+    if (args.vel):
+        config.VEL = args.vel
     if (args.server_right):
         config.SERVER_IP_RIGHT = args.server_right
     if (args.freq):
